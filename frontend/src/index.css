@@ -1,0 +1,120 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --bg-canvas: #f5f2eb;
+    --bg-surface: rgba(255, 255, 255, 0.88);
+    --bg-surface-strong: #ffffff;
+    --bg-elevated: #ece7dc;
+    --border-subtle: rgba(15, 23, 42, 0.09);
+    --border-gold: rgba(165, 128, 56, 0.34);
+    --text-primary: #0f131a;
+    --text-secondary: #475569;
+    --text-muted: #64748b;
+    --accent-gold: #a58038;
+    --accent-gold-soft: rgba(165, 128, 56, 0.14);
+    --accent-emerald: #059669;
+  }
+
+  .dark {
+    --bg-canvas: #07080b;
+    --bg-surface: rgba(17, 20, 28, 0.78);
+    --bg-surface-strong: #11141c;
+    --bg-elevated: #171c27;
+    --border-subtle: rgba(255, 255, 255, 0.08);
+    --border-gold: rgba(201, 164, 92, 0.28);
+    --text-primary: #f8fafc;
+    --text-secondary: #cbd5e1;
+    --text-muted: #8492a6;
+    --accent-gold: #c9a45c;
+    --accent-gold-soft: rgba(201, 164, 92, 0.14);
+    --accent-emerald: #10b981;
+  }
+
+  html,
+  body {
+    background-color: var(--bg-canvas);
+    color: var(--text-primary);
+    font-family: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+    min-height: 100%;
+    overflow-x: hidden;
+  }
+}
+
+.obsidian-backdrop {
+  background-color: var(--bg-canvas);
+  background-image:
+    radial-gradient(ellipse 65% 45% at 15% -8%, rgba(201, 164, 92, 0.14), transparent 60%),
+    radial-gradient(ellipse 55% 40% at 88% 8%, rgba(16, 185, 129, 0.09), transparent 62%);
+}
+
+html:not(.dark) .obsidian-backdrop {
+  background-image:
+    radial-gradient(ellipse 65% 45% at 15% -8%, rgba(201, 164, 92, 0.16), transparent 60%),
+    radial-gradient(ellipse 55% 40% at 88% 8%, rgba(16, 185, 129, 0.09), transparent 62%);
+}
+
+.glass-panel {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.glass-panel-gold {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-gold);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.input-private {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.input-private:focus {
+  outline: none;
+  border-color: var(--accent-gold);
+  box-shadow: 0 0 0 3px rgba(201, 164, 92, 0.18);
+}
+
+.btn-gold {
+  background: linear-gradient(135deg, #e5c678 0%, #c9a45c 52%, #a58038 100%);
+  color: #090b10;
+  font-weight: 700;
+  transition: transform 140ms ease, filter 160ms ease, box-shadow 160ms ease;
+}
+
+.btn-gold:hover {
+  filter: brightness(1.06);
+  box-shadow: 0 10px 26px -8px rgba(201, 164, 92, 0.5);
+}
+
+.btn-gold:active {
+  transform: scale(0.98);
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Custom sleek scrollbar */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.25);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(201, 164, 92, 0.45);
+}

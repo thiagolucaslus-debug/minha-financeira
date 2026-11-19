@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: minha-financeira
+    runtime: docker
+    plan: free
+    region: oregon
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: "8000"
+      - key: CLOUD_CONTAINER
+        value: "1"
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CLOUD_VAULT_REPO
+        value: thiagolucaslus-debug/minha-financeira-vault
+      - key: CLOUD_VAULT_BRANCH
+        value: main
+      - key: CLOUD_VAULT_GITHUB_TOKEN
+        sync: false
+      - key: CLOUD_VAULT_AES_KEY
+        sync: false
+      - key: CLOUD_VAULT_HYDRATE_SECRET
+        sync: false
