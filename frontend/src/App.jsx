@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
@@ -19,6 +19,10 @@ function AuthenticatedShell() {
   const [refreshSignal, setRefreshSignal] = useState(0);
 
   const bumpRefresh = () => setRefreshSignal((n) => n + 1);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  }, [user?.id]);
 
   if (loading) {
     return (
@@ -76,6 +80,7 @@ function AuthenticatedShell() {
           element={
             <CartoesPage
               competencia={competencia}
+              onChangeCompetencia={setCompetencia}
               refreshSignal={refreshSignal}
               onGlobalMutate={bumpRefresh}
             />
@@ -86,6 +91,7 @@ function AuthenticatedShell() {
           element={
             <ModulosDividaPage
               competencia={competencia}
+              onChangeCompetencia={setCompetencia}
               refreshSignal={refreshSignal}
               onGlobalMutate={bumpRefresh}
             />

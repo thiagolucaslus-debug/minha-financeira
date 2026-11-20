@@ -140,3 +140,108 @@ def test_contas_short_month_clamping_installments_pay_and_clean_revert(client):
     assert del_res.status_code == 200
     assert del_res.json()["caixa_estornados"] == 1
     assert client.get("/api/caixa?competencia=2026-05", headers=h).json()["resumo_mensal"]["saiu"] == 0.0
+
+
+def test_validation_guards_and_conta_effective_paid_amount(client):
+    h = register_and_headers(client, "Validador Strict", "validador_u")
+
+    # Datas impossíveis (2026-02-30, 2026-99-99), textos só espaços e sub-centavos -> 422 (nunca 500)
+    assert (
+        client.post(
+            "/api/caixa",
+            headers=h,
+            json={"tipo": "saida", "descricao": "Data invalida", "valor": 10.0, "data": "2026-99-99"},
+        ).status_code
+        == 422
+    )
+    assert (
+        client.post(
+            "/api/caixa",
+            headers=h,
+            json={"tipo": "entrada", "descricao": "Subcentavo", "valor": 0.001, "data": "2026-05-10"},
+        ).status_code
+        == 422
+    )
+    assert (
+        client.post(
+            "/api/contas",
+            headers=h,
+            json={"nome": "   ", "tipo": "fixa", "valor": 100.0, "dia_vencimento": 10},
+        ).status_code
+        == 422
+    )
+    assert (
+        client.post(
+            "/api/modulos-divida",
+            headers=h,
+            json={"nome": "   ", "cor_hex": "#10B981", "dia_fechamento": 10, "dia_vencimento": 18},
+        ).status_code
+        == 422
+    )
+
+    card = client.post(
+        "/api/cartoes",
+        headers=h,
+        json={"nome": "Card Guard", "cor_hex": "#C9A45C", "limite": 1000, "dia_fechamento": 10, "dia_vencimento": 17},
+    ).json()
+    assert (
+        client.post(
+            f"/api/cartoes/{card['id']}/compras",
+            headers=h,
+            json={"descricao": "Fev 30", "valor": 50.0, "parcelas_total": 1, "data_compra": "2026-02-30"},
+        ).status_code
+        == 422
+    )
+
+    # Conta parcelada 2x (2026-05 e 2026-06): pagar em mês inativo (2026-04 ou 2026-07) -> 400 sem gerar caixa fantasma
+    conta = client.post(
+        "/api/contas",
+        headers=h,
+        json={
+            "nome": "Seguro Auto",
+            "tipo": "parcelada",
+            "valor": 500.0,
+            "dia_vencimento": 15,
+            "competencia_inicio": "2026-05",
+            "parcelas_total": 2,
+        },
+    ).json()
+    assert (
+        client.post(
+            f"/api/contas/{conta['id']}/pagar",
+            headers=h,
+            json={"competencia": "2026-04", "lancar_no_caixa": True},
+        ).status_code
+        == 400
+    )
+    assert (
+        client.post(
+            f"/api/contas/{conta['id']}/pagar",
+            headers=h,
+            json={"competencia": "2026-07", "lancar_no_caixa": True},
+        ).status_code
+        == 400
+    )
+    assert client.get("/api/caixa?competencia=2026-04&periodo=todos", headers=h).json()["itens"] == []
+
+    # Edição da conta + pagamento com valor efetivo diferente (juros: 525 vs 500) mantém resumos consistentes
+    upd = client.put(
+        f"/api/contas/{conta['id']}",
+        headers=h,
+        json={"nome": "Seguro Auto Atualizado", "valor": 500.0, "dia_vencimento": 18},
+    )
+    assert upd.status_code == 200
+    assert upd.json()["nome"] == "Seguro Auto Atualizado"
+
+    pay = client.post(
+        f"/api/contas/{conta['id']}/pagar",
+        headers=h,
+        json={"competencia": "2026-05", "lancar_no_caixa": True, "valor_pago": 525.0, "data_pagamento": "2026-05-18"},
+    )
+    assert pay.status_code == 200
+    contas_m5 = client.get("/api/contas?competencia=2026-05", headers=h).json()
+    assert contas_m5["resumo"]["total"] == 525.0
+    assert contas_m5["resumo"]["pago"] == 525.0
+    painel_m5 = client.get("/api/painel/resumo?competencia=2026-05", headers=h).json()
+    assert painel_m5["radar"]["itens"][0]["valor"] == 525.0
+    assert painel_m5["radar"]["itens"][0]["valor_centavos"] == 52500

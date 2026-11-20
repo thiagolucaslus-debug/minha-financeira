@@ -167,7 +167,7 @@ export function getUrgencyMeta(statusUrgencia, diasRestantes) {
       return {
         label: 'Próximos 7 dias',
         tone: 'gold',
-        badgeClass: 'bg-gold-500/20 text-gold-600 dark:text-gold-300 border-gold-500/40',
+        badgeClass: 'bg-gold-500/20 text-gold-700 dark:text-gold-300 border-gold-500/45',
         countdown: d === 1 ? 'Vence amanhã' : `Em ${d} dias`,
       };
     }

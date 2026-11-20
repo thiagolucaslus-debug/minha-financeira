@@ -67,7 +67,7 @@ export function LoginPage() {
       <div className="max-w-5xl w-full mx-auto my-8 grid lg:grid-cols-12 gap-6 items-center">
         {/* Left Editorial / Value Prop */}
         <div className="lg:col-span-6 space-y-6 lg:pr-6">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-gold-500/12 border border-gold-500/30 text-gold-400 text-xs font-semibold">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-gold-500/15 border border-gold-500/35 text-gold-700 dark:text-gold-400 text-xs font-semibold">
             <Cloud className="w-3.5 h-3.5" />
             <span>100% Nuvem 24/7 · App Instalável PWA</span>
           </div>
@@ -75,7 +75,7 @@ export function LoginPage() {
           <div className="space-y-3">
             <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-[var(--text-primary)] leading-[1.08]">
               Seu dinheiro sob{' '}
-              <span className="bg-gradient-to-r from-gold-300 via-gold-500 to-emerald-400 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-gold-700 via-gold-600 to-emerald-600 dark:from-gold-300 dark:via-gold-500 dark:to-emerald-400 bg-clip-text text-transparent">
                 controle absoluto.
               </span>
             </h1>
@@ -87,7 +87,7 @@ export function LoginPage() {
 
           <div className="grid sm:grid-cols-2 gap-3">
             <div className="glass-panel rounded-2xl p-4 space-y-1.5">
-              <div className="w-8 h-8 rounded-xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center">
+              <div className="w-8 h-8 rounded-xl bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 flex items-center justify-center">
                 <Layers className="w-4 h-4" />
               </div>
               <div className="text-sm font-bold text-[var(--text-primary)]">
@@ -99,7 +99,7 @@ export function LoginPage() {
             </div>
 
             <div className="glass-panel rounded-2xl p-4 space-y-1.5">
-              <div className="w-8 h-8 rounded-xl bg-gold-500/15 text-gold-400 flex items-center justify-center">
+              <div className="w-8 h-8 rounded-xl bg-gold-500/15 text-gold-700 dark:text-gold-400 flex items-center justify-center">
                 <CreditCard className="w-4 h-4" />
               </div>
               <div className="text-sm font-bold text-[var(--text-primary)]">

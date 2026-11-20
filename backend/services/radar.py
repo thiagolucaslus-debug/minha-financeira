@@ -27,6 +27,7 @@ from services.dates import (
     closing_date_for_competencia,
     diff_months,
     due_date_for_competencia,
+    format_competencia,
     installment_value_for_index,
     today_brt,
 )
@@ -82,6 +83,7 @@ def conta_occurrence_for_month(
         "valor": centavos_to_brl(conta.valor_centavos),
         "valor_centavos": conta.valor_centavos,
         "valor_efetivo": centavos_to_brl(valor_cent),
+        "valor_efetivo_centavos": valor_cent,
         "dia_vencimento": conta.dia_vencimento,
         "data_vencimento": due_dt.isoformat(),
         "dia_ajustado": due_dt.day != conta.dia_vencimento,
@@ -175,6 +177,7 @@ def build_cartao_month_view(
     close_dt = closing_date_for_competencia(competencia, cartao.dia_fechamento, cartao.dia_vencimento)
     pago = pagamento is not None
     urgencia, dias_restantes = classify_urgency(due_dt, ref_today, pago)
+    valor_efetivo_cent = pagamento.valor_pago_centavos if pagamento else total_mes_cent
 
     return {
         "id": cartao.id,
@@ -197,6 +200,8 @@ def build_cartao_month_view(
         "competencia": competencia,
         "total_fatura": centavos_to_brl(total_mes_cent),
         "total_fatura_centavos": total_mes_cent,
+        "valor_efetivo": centavos_to_brl(valor_efetivo_cent),
+        "valor_efetivo_centavos": valor_efetivo_cent,
         "total_futuro": centavos_to_brl(total_futuro_cent),
         "itens_count": len(itens),
         "itens": itens,
@@ -227,6 +232,7 @@ def build_modulo_month_view(
     close_dt = closing_date_for_competencia(competencia, modulo.dia_fechamento, modulo.dia_vencimento)
     pago = pagamento is not None
     urgencia, dias_restantes = classify_urgency(due_dt, ref_today, pago)
+    valor_efetivo_cent = pagamento.valor_pago_centavos if pagamento else total_mes_cent
 
     return {
         "id": modulo.id,
@@ -247,6 +253,8 @@ def build_modulo_month_view(
         "competencia": competencia,
         "total_mes": centavos_to_brl(total_mes_cent),
         "total_mes_centavos": total_mes_cent,
+        "valor_efetivo": centavos_to_brl(valor_efetivo_cent),
+        "valor_efetivo_centavos": valor_efetivo_cent,
         "total_futuro": centavos_to_brl(total_futuro_cent),
         "itens_count": len(itens),
         "itens": itens,
@@ -261,6 +269,132 @@ def build_modulo_month_view(
     }
 
 
+def _build_radar_entries_for_month(
+    *,
+    contas: list[ContaVencer],
+    conta_pags_by_key: dict[tuple[int, str], ContaPagamento],
+    cartoes: list[Cartao],
+    compras_by_cartao: dict[int, list[CartaoCompra]],
+    pags_by_cartao: dict[int, list[CartaoFaturaPagamento]],
+    modulos: list[ModuloDivida],
+    compras_by_mod: dict[int, list[ModuloCompra]],
+    pags_by_mod: dict[int, list[ModuloFaturaPagamento]],
+    target_comp: str,
+    today: date,
+    fora_competencia: str | None = None,
+) -> tuple[list[dict[str, Any]], dict[str, int]]:
+    entries: list[dict[str, Any]] = []
+    totals = {
+        "contas_total": 0,
+        "contas_pago": 0,
+        "cartoes_total": 0,
+        "cartoes_pago": 0,
+        "modulos_total": 0,
+        "modulos_pago": 0,
+    }
+
+    for c in contas:
+        occ = conta_occurrence_for_month(c, target_comp, conta_pags_by_key.get((c.id, target_comp)), today)
+        if not occ:
+            continue
+        val_c = occ["valor_efetivo_centavos"]
+        totals["contas_total"] += val_c
+        if occ["pago"]:
+            totals["contas_pago"] += val_c
+        sub = f"Conta fixa · {occ['categoria']}"
+        if occ["parcela_atual"] and occ["parcelas_total"]:
+            sub = f"Parcela {occ['parcela_atual']}/{occ['parcelas_total']} · {occ['categoria']}"
+        entries.append(
+            {
+                "uid": f"conta:{c.id}:{target_comp}",
+                "origem_tipo": "conta",
+                "origem_id": c.id,
+                "titulo": c.nome,
+                "subtitulo": sub,
+                "cor_hex": c.cor_hex,
+                "competencia": target_comp,
+                "fora_competencia": fora_competencia,
+                "data_vencimento": occ["data_vencimento"],
+                "dias_restantes": occ["dias_restantes"],
+                "valor": occ["valor_efetivo"],
+                "valor_centavos": val_c,
+                "pago": occ["pago"],
+                "status_urgencia": occ["status_urgencia"],
+                "itens_count": 1,
+            }
+        )
+
+    for card in cartoes:
+        view = build_cartao_month_view(
+            card,
+            compras_by_cartao.get(card.id, []),
+            pags_by_cartao.get(card.id, []),
+            target_comp,
+            today,
+        )
+        if view["valor_efetivo_centavos"] <= 0 and not view["pago"]:
+            continue
+        val_c = view["valor_efetivo_centavos"]
+        totals["cartoes_total"] += val_c
+        if view["pago"]:
+            totals["cartoes_pago"] += val_c
+        entries.append(
+            {
+                "uid": f"cartao:{card.id}:{target_comp}",
+                "origem_tipo": "cartao",
+                "origem_id": card.id,
+                "titulo": f"Fatura {card.nome}",
+                "subtitulo": f"Cartão · {view['itens_count']} compra(s) no mês",
+                "cor_hex": card.cor_hex,
+                "competencia": target_comp,
+                "fora_competencia": fora_competencia,
+                "data_vencimento": view["data_vencimento"],
+                "dias_restantes": view["dias_restantes"],
+                "valor": view["valor_efetivo"],
+                "valor_centavos": val_c,
+                "pago": view["pago"],
+                "status_urgencia": view["status_urgencia"],
+                "itens_count": view["itens_count"],
+            }
+        )
+
+    for mod in modulos:
+        view = build_modulo_month_view(
+            mod,
+            compras_by_mod.get(mod.id, []),
+            pags_by_mod.get(mod.id, []),
+            target_comp,
+            today,
+        )
+        if view["valor_efetivo_centavos"] <= 0 and not view["pago"]:
+            continue
+        val_c = view["valor_efetivo_centavos"]
+        totals["modulos_total"] += val_c
+        if view["pago"]:
+            totals["modulos_pago"] += val_c
+        entries.append(
+            {
+                "uid": f"modulo_divida:{mod.id}:{target_comp}",
+                "origem_tipo": "modulo_divida",
+                "origem_id": mod.id,
+                "titulo": f"Módulo {mod.nome}",
+                "subtitulo": f"Dívida · {view['itens_count']} lançamento(s) no mês",
+                "cor_hex": mod.cor_hex,
+                "competencia": target_comp,
+                "fora_competencia": fora_competencia,
+                "data_vencimento": view["data_vencimento"],
+                "dias_restantes": view["dias_restantes"],
+                "valor": view["valor_efetivo"],
+                "valor_centavos": val_c,
+                "pago": view["pago"],
+                "status_urgencia": view["status_urgencia"],
+                "itens_count": view["itens_count"],
+            }
+        )
+
+    return entries, totals
+
+
 def build_unified_radar(
     db: Session,
     usuario_id: int,
@@ -272,58 +406,24 @@ def build_unified_radar(
     1. Contas a Vencer (Fixas & Parceladas)
     2. Meus Cartões de Crédito (com fatura > 0 no mês)
     3. Módulos de Dívida estilo Cartão Virtual (ex.: Thiago, Seu Luiz — com valor > 0 no mês)
+
+    Quando `competencia` é o mês corrente, também alerta automaticamente:
+    - compromissos não pagos atrasados de meses anteriores (até 6 meses atrás);
+    - compromissos não pagos do mês seguinte que já estão dentro da janela de 15 dias.
     """
     today = ref_today or today_brt()
-    items: list[dict[str, Any]] = []
+    current_comp = format_competencia(today.year, today.month)
 
-    # 1. Contas a Vencer
     contas = list(
         db.scalars(
             select(ContaVencer).where(ContaVencer.usuario_id == usuario_id, ContaVencer.ativo.is_(True))
         ).all()
     )
-    conta_pags = {
-        p.conta_id: p
-        for p in db.scalars(
-            select(ContaPagamento).where(
-                ContaPagamento.usuario_id == usuario_id,
-                ContaPagamento.competencia == competencia,
-            )
-        ).all()
-    }
-    contas_total_cent = 0
-    contas_pago_cent = 0
-    for c in contas:
-        occ = conta_occurrence_for_month(c, competencia, conta_pags.get(c.id), today)
-        if not occ:
-            continue
-        val_c = occ["valor_centavos"]
-        contas_total_cent += val_c
-        if occ["pago"]:
-            contas_pago_cent += val_c
-        sub = f"Conta fixa · {occ['categoria']}"
-        if occ["parcela_atual"] and occ["parcelas_total"]:
-            sub = f"Parcela {occ['parcela_atual']}/{occ['parcelas_total']} · {occ['categoria']}"
-        items.append(
-            {
-                "uid": f"conta:{c.id}:{competencia}",
-                "origem_tipo": "conta",
-                "origem_id": c.id,
-                "titulo": c.nome,
-                "subtitulo": sub,
-                "cor_hex": c.cor_hex,
-                "competencia": competencia,
-                "data_vencimento": occ["data_vencimento"],
-                "dias_restantes": occ["dias_restantes"],
-                "valor": occ["valor_efetivo"],
-                "valor_centavos": val_c,
-                "pago": occ["pago"],
-                "status_urgencia": occ["status_urgencia"],
-                "itens_count": 1,
-            }
-        )
+    conta_pags_all = list(
+        db.scalars(select(ContaPagamento).where(ContaPagamento.usuario_id == usuario_id)).all()
+    )
+    conta_pags_by_key = {(p.conta_id, p.competencia): p for p in conta_pags_all}
 
-    # 2. Meus Cartões de Crédito
     cartoes = list(
         db.scalars(
             select(Cartao).where(Cartao.usuario_id == usuario_id, Cartao.ativo.is_(True))
@@ -344,42 +444,6 @@ def build_unified_radar(
     for cp in cartao_pags_all:
         pags_by_cartao.setdefault(cp.cartao_id, []).append(cp)
 
-    cartoes_total_cent = 0
-    cartoes_pago_cent = 0
-    for card in cartoes:
-        view = build_cartao_month_view(
-            card,
-            compras_by_cartao.get(card.id, []),
-            pags_by_cartao.get(card.id, []),
-            competencia,
-            today,
-        )
-        if view["total_fatura_centavos"] <= 0 and not view["pago"]:
-            continue
-        val_c = view["total_fatura_centavos"]
-        cartoes_total_cent += val_c
-        if view["pago"]:
-            cartoes_pago_cent += val_c
-        items.append(
-            {
-                "uid": f"cartao:{card.id}:{competencia}",
-                "origem_tipo": "cartao",
-                "origem_id": card.id,
-                "titulo": f"Fatura {card.nome}",
-                "subtitulo": f"Cartão · {view['itens_count']} compra(s) no mês",
-                "cor_hex": card.cor_hex,
-                "competencia": competencia,
-                "data_vencimento": view["data_vencimento"],
-                "dias_restantes": view["dias_restantes"],
-                "valor": view["total_fatura"],
-                "valor_centavos": val_c,
-                "pago": view["pago"],
-                "status_urgencia": view["status_urgencia"],
-                "itens_count": view["itens_count"],
-            }
-        )
-
-    # 3. Módulos de Dívida (Cartão Virtual — ex.: Thiago, Seu Luiz)
     modulos = list(
         db.scalars(
             select(ModuloDivida).where(
@@ -402,40 +466,68 @@ def build_unified_radar(
     for mp in mod_pags_all:
         pags_by_mod.setdefault(mp.modulo_id, []).append(mp)
 
-    modulos_total_cent = 0
-    modulos_pago_cent = 0
-    for mod in modulos:
-        view = build_modulo_month_view(
-            mod,
-            compras_by_mod.get(mod.id, []),
-            pags_by_mod.get(mod.id, []),
-            competencia,
-            today,
+    # 1. Compromissos da competência selecionada (alimentam os KPIs do mês)
+    items, totals = _build_radar_entries_for_month(
+        contas=contas,
+        conta_pags_by_key=conta_pags_by_key,
+        cartoes=cartoes,
+        compras_by_cartao=compras_by_cartao,
+        pags_by_cartao=pags_by_cartao,
+        modulos=modulos,
+        compras_by_mod=compras_by_mod,
+        pags_by_mod=pags_by_mod,
+        target_comp=competencia,
+        today=today,
+        fora_competencia=None,
+    )
+
+    atrasados_anteriores_cent = 0
+    proximos_mes_seguinte_cent = 0
+
+    # 2. Alertas cross-month automáticos quando o usuário está olhando o mês atual
+    if competencia == current_comp:
+        for delta in range(-6, 0):
+            prev_comp = add_months(competencia, delta)
+            prev_entries, _ = _build_radar_entries_for_month(
+                contas=contas,
+                conta_pags_by_key=conta_pags_by_key,
+                cartoes=cartoes,
+                compras_by_cartao=compras_by_cartao,
+                pags_by_cartao=pags_by_cartao,
+                modulos=modulos,
+                compras_by_mod=compras_by_mod,
+                pags_by_mod=pags_by_mod,
+                target_comp=prev_comp,
+                today=today,
+                fora_competencia="anterior",
+            )
+            for it in prev_entries:
+                if not it["pago"] and it["valor_centavos"] > 0 and it["status_urgencia"] == "atrasado":
+                    items.append(it)
+                    atrasados_anteriores_cent += it["valor_centavos"]
+
+        next_comp = add_months(competencia, 1)
+        next_entries, _ = _build_radar_entries_for_month(
+            contas=contas,
+            conta_pags_by_key=conta_pags_by_key,
+            cartoes=cartoes,
+            compras_by_cartao=compras_by_cartao,
+            pags_by_cartao=pags_by_cartao,
+            modulos=modulos,
+            compras_by_mod=compras_by_mod,
+            pags_by_mod=pags_by_mod,
+            target_comp=next_comp,
+            today=today,
+            fora_competencia="proximo",
         )
-        if view["total_mes_centavos"] <= 0 and not view["pago"]:
-            continue
-        val_c = view["total_mes_centavos"]
-        modulos_total_cent += val_c
-        if view["pago"]:
-            modulos_pago_cent += val_c
-        items.append(
-            {
-                "uid": f"modulo_divida:{mod.id}:{competencia}",
-                "origem_tipo": "modulo_divida",
-                "origem_id": mod.id,
-                "titulo": f"Módulo {mod.nome}",
-                "subtitulo": f"Dívida · {view['itens_count']} lançamento(s) no mês",
-                "cor_hex": mod.cor_hex,
-                "competencia": competencia,
-                "data_vencimento": view["data_vencimento"],
-                "dias_restantes": view["dias_restantes"],
-                "valor": view["total_mes"],
-                "valor_centavos": val_c,
-                "pago": view["pago"],
-                "status_urgencia": view["status_urgencia"],
-                "itens_count": view["itens_count"],
-            }
-        )
+        for it in next_entries:
+            if (
+                not it["pago"]
+                and it["valor_centavos"] > 0
+                and 0 <= it["dias_restantes"] <= 15
+            ):
+                items.append(it)
+                proximos_mes_seguinte_cent += it["valor_centavos"]
 
     # Ordenação por prioridade real: atrasado -> hoje -> 7d -> 15d -> futuro -> pago
     priority_rank = {
@@ -448,6 +540,13 @@ def build_unified_radar(
         "sem_fatura": 6,
     }
     items.sort(key=lambda it: (priority_rank.get(it["status_urgencia"], 9), it["data_vencimento"], it["titulo"]))
+
+    contas_total_cent = totals["contas_total"]
+    contas_pago_cent = totals["contas_pago"]
+    cartoes_total_cent = totals["cartoes_total"]
+    cartoes_pago_cent = totals["cartoes_pago"]
+    modulos_total_cent = totals["modulos_total"]
+    modulos_pago_cent = totals["modulos_pago"]
 
     total_compromissos_cent = contas_total_cent + cartoes_total_cent + modulos_total_cent
     total_pago_cent = contas_pago_cent + cartoes_pago_cent + modulos_pago_cent
@@ -466,6 +565,8 @@ def build_unified_radar(
             "total_compromissos": centavos_to_brl(total_compromissos_cent),
             "total_pago": centavos_to_brl(total_pago_cent),
             "a_vencer": centavos_to_brl(a_vencer_cent),
+            "atrasados_anteriores_total": centavos_to_brl(atrasados_anteriores_cent),
+            "proximos_mes_seguinte_total": centavos_to_brl(proximos_mes_seguinte_cent),
             "qtd_atrasados": qtd_atrasados,
             "qtd_hoje": qtd_hoje,
             "qtd_7_dias": qtd_7,

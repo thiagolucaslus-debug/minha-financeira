@@ -31,6 +31,7 @@ import { api } from '../api/client';
 import {
   formatBRL,
   formatCompetenciaFull,
+  formatCompetenciaShort,
   formatShortDateBR,
   getUrgencyMeta,
 } from '../utils/format';
@@ -77,8 +78,8 @@ export function DashboardPage({ competencia, refreshSignal, onGlobalMutate }) {
       }
       notify(`${payTarget.titulo} marcado como pago!`);
       setPayTarget(null);
-      await loadData();
-      onGlobalMutate?.();
+      if (onGlobalMutate) onGlobalMutate();
+      else await loadData();
     } catch (err) {
       notify(err.message || 'Falha ao registrar pagamento.', 'error');
     } finally {
@@ -96,8 +97,8 @@ export function DashboardPage({ competencia, refreshSignal, onGlobalMutate }) {
         await api.estornarModulo(item.origem_id, item.competencia);
       }
       notify(`Pagamento de ${item.titulo} estornado.`);
-      await loadData();
-      onGlobalMutate?.();
+      if (onGlobalMutate) onGlobalMutate();
+      else await loadData();
     } catch (err) {
       notify(err.message || 'Erro ao estornar pagamento.', 'error');
     }
@@ -128,7 +129,7 @@ export function DashboardPage({ competencia, refreshSignal, onGlobalMutate }) {
       {/* Cabeçalho Executivo + Ações Rápidas */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
-          <div className="text-xs font-semibold uppercase tracking-[0.2em] text-gold-400">
+          <div className="text-xs font-semibold uppercase tracking-[0.2em] text-gold-700 dark:text-gold-400">
             Visão Executiva · {formatCompetenciaFull(competencia)}
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[var(--text-primary)] mt-1">
@@ -141,7 +142,7 @@ export function DashboardPage({ competencia, refreshSignal, onGlobalMutate }) {
             type="button"
             onClick={() => setQuickType('entrada')}
             data-testid="quick-entrada-btn"
-            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-emerald-500/15 border border-emerald-500/35 text-emerald-400 text-xs sm:text-sm font-bold hover:bg-emerald-500/25 transition"
+            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-emerald-500/15 border border-emerald-500/35 text-emerald-700 dark:text-emerald-400 text-xs sm:text-sm font-bold hover:bg-emerald-500/25 transition"
           >
             <ArrowUpRight className="w-4 h-4" />
             + Entrada
@@ -150,7 +151,7 @@ export function DashboardPage({ competencia, refreshSignal, onGlobalMutate }) {
             type="button"
             onClick={() => setQuickType('saida')}
             data-testid="quick-saida-btn"
-            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-rose-500/15 border border-rose-500/35 text-rose-400 text-xs sm:text-sm font-bold hover:bg-rose-500/25 transition"
+            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-rose-500/15 border border-rose-500/35 text-rose-700 dark:text-rose-400 text-xs sm:text-sm font-bold hover:bg-rose-500/25 transition"
           >
             <ArrowDownRight className="w-4 h-4" />
             - Saída
@@ -163,13 +164,13 @@ export function DashboardPage({ competencia, refreshSignal, onGlobalMutate }) {
         <div className="glass-panel rounded-3xl p-4 sm:p-5 relative overflow-hidden">
           <div className="flex items-center justify-between text-xs font-semibold text-[var(--text-muted)]">
             <span>Entrou no mês</span>
-            <span className="w-8 h-8 rounded-xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center">
+            <span className="w-8 h-8 rounded-xl bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 flex items-center justify-center">
               <ArrowUpRight className="w-4 h-4" />
             </span>
           </div>
           <div
             data-testid="kpi-entrou"
-            className="text-xl sm:text-2xl font-extrabold text-emerald-400 tabular-nums mt-3"
+            className="text-xl sm:text-2xl font-extrabold text-emerald-700 dark:text-emerald-400 tabular-nums mt-3"
           >
             {formatBRL(kpis.entrou)}
           </div>
@@ -181,13 +182,13 @@ export function DashboardPage({ competencia, refreshSignal, onGlobalMutate }) {
         <div className="glass-panel rounded-3xl p-4 sm:p-5 relative overflow-hidden">
           <div className="flex items-center justify-between text-xs font-semibold text-[var(--text-muted)]">
             <span>Saiu no mês</span>
-            <span className="w-8 h-8 rounded-xl bg-rose-500/15 text-rose-400 flex items-center justify-center">
+            <span className="w-8 h-8 rounded-xl bg-rose-500/15 text-rose-600 dark:text-rose-400 flex items-center justify-center">
               <ArrowDownRight className="w-4 h-4" />
             </span>
           </div>
           <div
             data-testid="kpi-saiu"
-            className="text-xl sm:text-2xl font-extrabold text-rose-400 tabular-nums mt-3"
+            className="text-xl sm:text-2xl font-extrabold text-rose-600 dark:text-rose-400 tabular-nums mt-3"
           >
             {formatBRL(kpis.saiu)}
           </div>
@@ -199,38 +200,45 @@ export function DashboardPage({ competencia, refreshSignal, onGlobalMutate }) {
         <div className="glass-panel-gold rounded-3xl p-4 sm:p-5 relative overflow-hidden">
           <div className="flex items-center justify-between text-xs font-semibold text-[var(--text-muted)]">
             <span>Sobrou no caixa</span>
-            <span className="w-8 h-8 rounded-xl bg-gold-500/18 text-gold-400 flex items-center justify-center">
+            <span className="w-8 h-8 rounded-xl bg-gold-500/18 text-gold-700 dark:text-gold-400 flex items-center justify-center">
               <PiggyBank className="w-4 h-4" />
             </span>
           </div>
           <div
             data-testid="kpi-sobrou"
             className={`text-xl sm:text-2xl font-extrabold tabular-nums mt-3 ${
-              kpis.sobrou >= 0 ? 'text-[var(--text-primary)]' : 'text-rose-400'
+              kpis.sobrou >= 0 ? 'text-[var(--text-primary)]' : 'text-rose-600 dark:text-rose-400'
             }`}
           >
             {formatBRL(kpis.sobrou)}
           </div>
           <div className="text-[11px] text-[var(--text-muted)] mt-1 tabular-nums">
-            Projetado pós-contas: <strong className="text-gold-400">{formatBRL(kpis.saldo_projetado)}</strong>
+            Projetado pós-contas:{' '}
+            <strong className="text-gold-700 dark:text-gold-400">{formatBRL(kpis.saldo_projetado)}</strong>
           </div>
         </div>
 
         <div className="glass-panel rounded-3xl p-4 sm:p-5 relative overflow-hidden">
           <div className="flex items-center justify-between text-xs font-semibold text-[var(--text-muted)]">
             <span>A vencer no mês</span>
-            <span className="w-8 h-8 rounded-xl bg-amber-500/15 text-amber-400 flex items-center justify-center">
+            <span className="w-8 h-8 rounded-xl bg-amber-500/15 text-amber-700 dark:text-amber-400 flex items-center justify-center">
               <CalendarClock className="w-4 h-4" />
             </span>
           </div>
           <div
             data-testid="kpi-avencer"
-            className="text-xl sm:text-2xl font-extrabold text-amber-400 tabular-nums mt-3"
+            className="text-xl sm:text-2xl font-extrabold text-amber-700 dark:text-amber-400 tabular-nums mt-3"
           >
             {formatBRL(kpis.a_vencer)}
           </div>
           <div className="text-[11px] text-[var(--text-muted)] mt-1">
-            Contas + Cartões + Módulos
+            {Number(radar.resumo?.atrasados_anteriores_total || 0) > 0 ? (
+              <span className="text-rose-600 dark:text-rose-400 font-semibold">
+                + {formatBRL(radar.resumo.atrasados_anteriores_total)} de meses anteriores
+              </span>
+            ) : (
+              'Contas + Cartões + Módulos'
+            )}
           </div>
         </div>
       </div>
@@ -239,7 +247,7 @@ export function DashboardPage({ competencia, refreshSignal, onGlobalMutate }) {
       <section className="glass-panel-gold rounded-3xl p-5 sm:p-6 space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gold-500/18 text-gold-400 flex items-center justify-center border border-gold-500/30">
+            <div className="w-10 h-10 rounded-2xl bg-gold-500/18 text-gold-700 dark:text-gold-400 flex items-center justify-center border border-gold-500/35">
               <BellRing className="w-5 h-5" />
             </div>
             <div>
@@ -255,22 +263,22 @@ export function DashboardPage({ competencia, refreshSignal, onGlobalMutate }) {
           {/* Resumo Urgências */}
           <div className="flex flex-wrap items-center gap-2">
             {radar.resumo?.qtd_atrasados > 0 && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-rose-500/15 text-rose-400 border border-rose-500/35">
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-rose-500/15 text-rose-700 dark:text-rose-400 border border-rose-500/35">
                 <AlertTriangle className="w-3.5 h-3.5" /> {radar.resumo.qtd_atrasados} atrasado(s)
               </span>
             )}
             {radar.resumo?.qtd_hoje > 0 && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-400 border border-amber-500/40">
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/45">
                 <Clock className="w-3.5 h-3.5" /> {radar.resumo.qtd_hoje} hoje
               </span>
             )}
             {radar.resumo?.qtd_7_dias > 0 && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-gold-500/18 text-gold-400 border border-gold-500/35">
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-gold-500/20 text-gold-700 dark:text-gold-300 border border-gold-500/40">
                 {radar.resumo.qtd_7_dias} próx. 7d
               </span>
             )}
             {radar.resumo?.qtd_15_dias > 0 && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-sky-500/15 text-sky-400 border border-sky-500/30">
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-sky-500/15 text-sky-700 dark:text-sky-400 border border-sky-500/35">
                 {radar.resumo.qtd_15_dias} próx. 15d
               </span>
             )}
@@ -290,7 +298,7 @@ export function DashboardPage({ competencia, refreshSignal, onGlobalMutate }) {
               onClick={() => setRadarFilter(tab.id)}
               className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition border ${
                 radarFilter === tab.id
-                  ? 'bg-gold-500/20 text-gold-400 border-gold-500/40'
+                  ? 'bg-gold-500/20 text-gold-700 dark:text-gold-400 border-gold-500/45'
                   : 'bg-[var(--bg-elevated)] text-[var(--text-secondary)] border-[var(--border-subtle)] hover:border-gold-500/30'
               }`}
             >
@@ -342,6 +350,11 @@ export function DashboardPage({ competencia, refreshSignal, onGlobalMutate }) {
                         >
                           {urg.countdown}
                         </span>
+                        {it.fora_competencia && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-[var(--bg-elevated)] text-[var(--text-secondary)] border border-[var(--border-subtle)]">
+                            Ref. {formatCompetenciaShort(it.competencia)}
+                          </span>
+                        )}
                       </div>
                       <div className="text-xs text-[var(--text-muted)] mt-0.5">
                         {it.subtitulo} · Vence em {formatShortDateBR(it.data_vencimento)}
@@ -357,7 +370,7 @@ export function DashboardPage({ competencia, refreshSignal, onGlobalMutate }) {
                       <button
                         type="button"
                         onClick={() => handleUndoPay(it)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 hover:bg-rose-500/15 hover:text-rose-400 hover:border-rose-500/35 transition"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/35 hover:bg-rose-500/15 hover:text-rose-700 dark:hover:text-rose-400 hover:border-rose-500/35 transition"
                         title="Clique para estornar este pagamento"
                       >
                         <CheckCircle2 className="w-3.5 h-3.5" />
@@ -396,7 +409,7 @@ export function DashboardPage({ competencia, refreshSignal, onGlobalMutate }) {
                 Evolução real do seu fluxo de caixa mensal
               </p>
             </div>
-            <Link to="/caixa" className="text-xs font-semibold text-gold-400 hover:underline">
+            <Link to="/caixa" className="text-xs font-semibold text-gold-700 dark:text-gold-400 hover:underline">
               Ver Caixa →
             </Link>
           </div>
@@ -504,7 +517,7 @@ export function DashboardPage({ competencia, refreshSignal, onGlobalMutate }) {
             <h3 className="text-base font-extrabold text-[var(--text-primary)]">
               Últimas Movimentações do Caixa
             </h3>
-            <Link to="/caixa" className="text-xs font-semibold text-gold-400 hover:underline">
+            <Link to="/caixa" className="text-xs font-semibold text-gold-700 dark:text-gold-400 hover:underline">
               Ver tudo →
             </Link>
           </div>
@@ -521,7 +534,9 @@ export function DashboardPage({ competencia, refreshSignal, onGlobalMutate }) {
                 </div>
                 <span
                   className={`text-sm font-extrabold tabular-nums flex-shrink-0 ${
-                    item.tipo === 'entrada' ? 'text-emerald-400' : 'text-rose-400'
+                    item.tipo === 'entrada'
+                      ? 'text-emerald-700 dark:text-emerald-400'
+                      : 'text-rose-600 dark:text-rose-400'
                   }`}
                 >
                   {item.tipo === 'entrada' ? '+' : '-'} {formatBRL(item.valor)}
@@ -582,8 +597,8 @@ export function DashboardPage({ competencia, refreshSignal, onGlobalMutate }) {
         initialType={quickType || 'saida'}
         onClose={() => setQuickType(null)}
         onSaved={() => {
-          loadData();
-          onGlobalMutate?.();
+          if (onGlobalMutate) onGlobalMutate();
+          else loadData();
         }}
       />
     </div>

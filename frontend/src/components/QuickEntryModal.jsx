@@ -112,26 +112,26 @@ export function QuickEntryModal({ open, onClose, initialType = 'saida', onSaved 
         {/* Atalhos 1 toque */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1">
           <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)] inline-flex items-center gap-1 flex-shrink-0">
-            <Zap className="w-3 h-3 text-gold-400" /> Rápido:
+            <Zap className="w-3 h-3 text-gold-700 dark:text-gold-400" /> Rápido:
           </span>
           <button
             type="button"
             onClick={() => applyPreset('entrada', 'Uber / App', 'Corridas Uber', 100)}
-            className="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/25 flex-shrink-0"
+            className="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/35 hover:bg-emerald-500/25 flex-shrink-0"
           >
             +R$ 100 Uber
           </button>
           <button
             type="button"
             onClick={() => applyPreset('saida', 'Mercado', 'Gasto Mercado', 20)}
-            className="px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-500/15 text-rose-400 border border-rose-500/30 hover:bg-rose-500/25 flex-shrink-0"
+            className="px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-500/15 text-rose-700 dark:text-rose-400 border border-rose-500/35 hover:bg-rose-500/25 flex-shrink-0"
           >
             -R$ 20 Mercado
           </button>
           <button
             type="button"
             onClick={() => applyPreset('saida', 'Combustível', 'Abastecimento', 50)}
-            className="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/30 hover:bg-amber-500/25 flex-shrink-0"
+            className="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/15 text-amber-800 dark:text-amber-400 border border-amber-500/35 hover:bg-amber-500/25 flex-shrink-0"
           >
             -R$ 50 Combustível
           </button>
@@ -176,8 +176,8 @@ export function QuickEntryModal({ open, onClose, initialType = 'saida', onSaved 
                   className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition ${
                     active
                       ? tipo === 'entrada'
-                        ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400'
-                        : 'bg-gold-500/20 border-gold-500/50 text-gold-400'
+                        ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-700 dark:text-emerald-400'
+                        : 'bg-gold-500/20 border-gold-500/50 text-gold-700 dark:text-gold-400'
                       : 'bg-[var(--bg-elevated)] border-[var(--border-subtle)] text-[var(--text-secondary)] hover:border-gold-500/30'
                   }`}
                 >

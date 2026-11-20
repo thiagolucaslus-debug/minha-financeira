@@ -16,13 +16,16 @@ import {
   formatDateBR,
   formatShortDateBR,
   getTodayISO,
+  shiftCompetencia,
 } from '../utils/format';
 import { ColorPickerField } from '../components/ColorPickerField';
 import { Modal } from '../components/Modal';
 import { VisualCard } from '../components/VisualCard';
 import { useToast } from '../components/Toast';
 
-export function ModulosDividaPage({ competencia, refreshSignal, onGlobalMutate }) {
+const MOD_COMPRA_CATS = ['Dívidas', 'Mercado', 'Compras', 'Veículo', 'Alimentação', 'Eletrônicos', 'Saúde', 'Outros'];
+
+export function ModulosDividaPage({ competencia, onChangeCompetencia, refreshSignal, onGlobalMutate }) {
   const { notify } = useToast();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -30,6 +33,7 @@ export function ModulosDividaPage({ competencia, refreshSignal, onGlobalMutate }
 
   const [modModalOpen, setModModalOpen] = useState(false);
   const [editingMod, setEditingMod] = useState(null);
+  const [deleteModTarget, setDeleteModTarget] = useState(null);
   const [modForm, setModForm] = useState({
     nome: '',
     descricao: '',
@@ -123,22 +127,37 @@ export function ModulosDividaPage({ competencia, refreshSignal, onGlobalMutate }
         notify(`Módulo "${payload.nome}" criado! Agora você pode lançar compras dentro dele.`);
       }
       setModModalOpen(false);
-      load();
-      onGlobalMutate?.();
+      if (onGlobalMutate) onGlobalMutate();
+      else load();
     } catch (err) {
       notify(err.message || 'Erro ao salvar módulo.', 'error');
     }
   };
 
-  const handleDeleteModulo = async (mod) => {
+  const handleConfirmDeleteModulo = async () => {
+    if (!deleteModTarget) return;
     try {
-      await api.deleteModulo(mod.id);
-      notify(`Módulo "${mod.nome}" excluído.`);
-      load();
-      onGlobalMutate?.();
+      await api.deleteModulo(deleteModTarget.id);
+      notify(`Módulo "${deleteModTarget.nome}" excluído.`);
+      setDeleteModTarget(null);
+      if (onGlobalMutate) onGlobalMutate();
+      else load();
     } catch (err) {
       notify(err.message || 'Erro ao excluir módulo.', 'error');
     }
+  };
+
+  const openCompraModal = () => {
+    setCompraForm({
+      descricao: '',
+      categoria: 'Dívidas',
+      valor: '',
+      modo_valor: 'total',
+      parcelas_total: '1',
+      data_compra: getTodayISO(),
+      competencia_inicial: '',
+    });
+    setCompraModalOpen(true);
   };
 
   const handleAddCompra = async (e) => {
@@ -169,8 +188,8 @@ export function ModulosDividaPage({ competencia, refreshSignal, onGlobalMutate }
         data_compra: getTodayISO(),
         competencia_inicial: '',
       });
-      load();
-      onGlobalMutate?.();
+      if (onGlobalMutate) onGlobalMutate();
+      else load();
     } catch (err) {
       notify(err.message || 'Erro ao lançar compra no módulo.', 'error');
     }
@@ -181,8 +200,8 @@ export function ModulosDividaPage({ competencia, refreshSignal, onGlobalMutate }
     try {
       await api.deleteModuloCompra(selectedMod.id, compraId);
       notify('Compra removida do módulo (módulo mantido intacto).');
-      load();
-      onGlobalMutate?.();
+      if (onGlobalMutate) onGlobalMutate();
+      else load();
     } catch (err) {
       notify(err.message || 'Erro ao excluir compra.', 'error');
     }
@@ -197,8 +216,8 @@ export function ModulosDividaPage({ competencia, refreshSignal, onGlobalMutate }
       });
       notify(`Módulo ${selectedMod.nome} quitado em ${formatCompetenciaFull(competencia)}!`);
       setPayModalOpen(false);
-      load();
-      onGlobalMutate?.();
+      if (onGlobalMutate) onGlobalMutate();
+      else load();
     } catch (err) {
       notify(err.message || 'Erro ao quitar módulo.', 'error');
     }
@@ -209,8 +228,8 @@ export function ModulosDividaPage({ competencia, refreshSignal, onGlobalMutate }
     try {
       await api.estornarModulo(selectedMod.id, competencia);
       notify(`Baixa do módulo ${selectedMod.nome} estornada.`);
-      load();
-      onGlobalMutate?.();
+      if (onGlobalMutate) onGlobalMutate();
+      else load();
     } catch (err) {
       notify(err.message || 'Erro ao estornar módulo.', 'error');
     }
@@ -231,7 +250,7 @@ export function ModulosDividaPage({ competencia, refreshSignal, onGlobalMutate }
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
-          <div className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-400">
+          <div className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700 dark:text-emerald-400">
             Estilo Cartão Virtual · {formatCompetenciaFull(competencia)}
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[var(--text-primary)] mt-1">
@@ -265,7 +284,7 @@ export function ModulosDividaPage({ competencia, refreshSignal, onGlobalMutate }
         </div>
         <div className="glass-panel rounded-2xl p-4">
           <div className="text-[11px] uppercase font-semibold text-[var(--text-muted)]">Pago</div>
-          <div className="text-lg sm:text-2xl font-extrabold text-emerald-400 tabular-nums mt-1">
+          <div className="text-lg sm:text-2xl font-extrabold text-emerald-700 dark:text-emerald-400 tabular-nums mt-1">
             {formatBRL(data?.resumo?.total_pago || 0)}
           </div>
         </div>
@@ -273,7 +292,7 @@ export function ModulosDividaPage({ competencia, refreshSignal, onGlobalMutate }
           <div className="text-[11px] uppercase font-semibold text-[var(--text-muted)]">
             Pendente
           </div>
-          <div className="text-lg sm:text-2xl font-extrabold text-gold-400 tabular-nums mt-1">
+          <div className="text-lg sm:text-2xl font-extrabold text-gold-700 dark:text-gold-400 tabular-nums mt-1">
             {formatBRL(data?.resumo?.total_pendente || 0)}
           </div>
         </div>
@@ -286,7 +305,7 @@ export function ModulosDividaPage({ competencia, refreshSignal, onGlobalMutate }
         </div>
       ) : (data?.itens || []).length === 0 ? (
         <div className="glass-panel-gold rounded-3xl p-12 text-center space-y-3">
-          <Layers className="w-9 h-9 text-emerald-400 mx-auto" />
+          <Layers className="w-9 h-9 text-emerald-700 dark:text-emerald-400 mx-auto" />
           <div className="text-base font-bold text-[var(--text-primary)]">
             Crie seu primeiro Módulo de Dívida
           </div>
@@ -326,7 +345,7 @@ export function ModulosDividaPage({ competencia, refreshSignal, onGlobalMutate }
                       <h2 className="text-lg font-extrabold text-[var(--text-primary)]">
                         Módulo {selectedMod.nome}
                       </h2>
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/35">
                         <BellRing className="w-3 h-3" /> Alerta ativo no Radar
                       </span>
                     </div>
@@ -344,7 +363,7 @@ export function ModulosDividaPage({ competencia, refreshSignal, onGlobalMutate }
                 <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
                   <button
                     type="button"
-                    onClick={() => setCompraModalOpen(true)}
+                    onClick={openCompraModal}
                     data-testid="add-modulo-compra-btn"
                     className="btn-gold rounded-xl px-3.5 py-2 text-xs inline-flex items-center gap-1.5 whitespace-nowrap"
                   >
@@ -356,7 +375,7 @@ export function ModulosDividaPage({ competencia, refreshSignal, onGlobalMutate }
                     <button
                       type="button"
                       onClick={handleUndoMes}
-                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/35 hover:bg-rose-500/15 hover:text-rose-400"
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/35 hover:bg-rose-500/15 hover:text-rose-700 dark:hover:text-rose-400"
                     >
                       <CheckCircle2 className="w-3.5 h-3.5" /> Mês Quitado <Undo2 className="w-3 h-3" />
                     </button>
@@ -368,7 +387,7 @@ export function ModulosDividaPage({ competencia, refreshSignal, onGlobalMutate }
                           setLancarNoCaixa(true);
                           setPayModalOpen(true);
                         }}
-                        className="px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/35 hover:bg-emerald-500/25"
+                        className="px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/35 hover:bg-emerald-500/25"
                       >
                         Pagar Mês ({formatBRL(selectedMod.total_mes)})
                       </button>
@@ -379,15 +398,15 @@ export function ModulosDividaPage({ competencia, refreshSignal, onGlobalMutate }
                     type="button"
                     onClick={() => openEditModulo(selectedMod)}
                     aria-label="Editar módulo"
-                    className="p-2 rounded-xl bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:text-gold-400"
+                    className="p-2 rounded-xl bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:text-gold-700 dark:hover:text-gold-400"
                   >
                     <Edit3 className="w-4 h-4" />
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleDeleteModulo(selectedMod)}
+                    onClick={() => setDeleteModTarget(selectedMod)}
                     aria-label="Excluir módulo"
-                    className="p-2 rounded-xl bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:text-rose-400"
+                    className="p-2 rounded-xl bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:text-rose-600 dark:hover:text-rose-400"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -395,11 +414,22 @@ export function ModulosDividaPage({ competencia, refreshSignal, onGlobalMutate }
               </div>
 
               {selectedMod.itens.length === 0 ? (
-                <div className="py-8 text-center text-xs text-[var(--text-muted)] space-y-1.5">
+                <div className="py-8 text-center text-xs text-[var(--text-muted)] space-y-2.5">
                   <div>Nenhuma compra ou parcela vencendo em {formatCompetenciaFull(competencia)} neste módulo.</div>
                   {selectedMod.total_futuro > 0 && (
-                    <div className="text-emerald-400 font-semibold">
-                      Há {formatBRL(selectedMod.total_futuro)} projetados nos próximos meses — avance o mês no topo para conferir.
+                    <div className="space-y-2">
+                      <div className="text-emerald-700 dark:text-emerald-400 font-semibold">
+                        Há {formatBRL(selectedMod.total_futuro)} projetados nos próximos meses.
+                      </div>
+                      {onChangeCompetencia && (
+                        <button
+                          type="button"
+                          onClick={() => onChangeCompetencia(shiftCompetencia(competencia, 1))}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/35 text-xs font-bold hover:bg-emerald-500/25 transition"
+                        >
+                          Ver próximo mês →
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -415,7 +445,7 @@ export function ModulosDividaPage({ competencia, refreshSignal, onGlobalMutate }
                           <span className="text-sm font-bold text-[var(--text-primary)] truncate">
                             {item.descricao}
                           </span>
-                          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-gold-500/15 text-gold-400 border border-gold-500/30">
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-gold-500/15 text-gold-700 dark:text-gold-400 border border-gold-500/35">
                             {item.parcelas_total > 1
                               ? `Parcela ${item.parcela_atual}/${item.parcelas_total}`
                               : 'À vista'}
@@ -624,10 +654,32 @@ export function ModulosDividaPage({ competencia, refreshSignal, onGlobalMutate }
           </div>
 
           {compraNum > 0 && (
-            <div className="rounded-xl bg-emerald-500/12 border border-emerald-500/30 px-3.5 py-2.5 text-xs text-emerald-300 font-semibold tabular-nums">
+            <div className="rounded-xl bg-emerald-500/12 border border-emerald-500/35 px-3.5 py-2.5 text-xs text-emerald-700 dark:text-emerald-300 font-semibold tabular-nums">
               Prévia: {compraParcelas}x de {formatBRL(previewParcela)} · Total {formatBRL(previewTotal)}
             </div>
           )}
+
+          <div>
+            <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1.5">
+              Categoria
+            </label>
+            <div className="flex flex-wrap gap-1.5">
+              {MOD_COMPRA_CATS.map((cat) => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setCompraForm({ ...compraForm, categoria: cat })}
+                  className={`px-2.5 py-1 rounded-xl text-xs font-semibold border transition ${
+                    compraForm.categoria === cat
+                      ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-700 dark:text-emerald-300'
+                      : 'bg-[var(--bg-elevated)] border-[var(--border-subtle)] text-[var(--text-secondary)]'
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+          </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -694,6 +746,39 @@ export function ModulosDividaPage({ competencia, refreshSignal, onGlobalMutate }
           <button type="button" onClick={handlePayMes} className="w-full btn-gold rounded-2xl py-3 text-sm">
             Confirmar Pagamento
           </button>
+        </div>
+      </Modal>
+
+      {/* Modal Confirmar Exclusão de Módulo */}
+      <Modal
+        open={Boolean(deleteModTarget)}
+        onClose={() => setDeleteModTarget(null)}
+        title="Excluir Módulo de Dívida?"
+        subtitle={deleteModTarget ? `Módulo ${deleteModTarget.nome}` : ''}
+        maxWidth="max-w-md"
+      >
+        <div className="space-y-4">
+          <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+            Isso excluirá o módulo <strong>{deleteModTarget?.nome}</strong>, todas as compras
+            lançadas dentro dele e estornará eventuais baixas vinculadas ao Caixa. Para remover
+            apenas uma compra mantendo o módulo intacto, clique na lixeira daquela compra.
+          </p>
+          <div className="flex gap-2.5">
+            <button
+              type="button"
+              onClick={() => setDeleteModTarget(null)}
+              className="flex-1 py-3 rounded-2xl bg-[var(--bg-elevated)] text-sm font-semibold text-[var(--text-secondary)]"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirmDeleteModulo}
+              className="flex-1 py-3 rounded-2xl bg-rose-600 text-white font-bold text-sm hover:bg-rose-700 transition"
+            >
+              Excluir Módulo
+            </button>
+          </div>
         </div>
       </Modal>
     </div>

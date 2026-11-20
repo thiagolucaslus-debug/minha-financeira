@@ -118,9 +118,8 @@ def merge_missing_users_sqlite(base_db_path: Path, extra_db_path: Path) -> int:
                 cartao_map: dict[int, int] = {}
                 modulo_map: dict[int, int] = {}
 
-                # 1. Tabelas raiz do usuário
+                # 1. Entidades-pai (contas, cartões, módulos) primeiro para remapear `origem_ref_id` no Caixa
                 for tbl, id_map in (
-                    ("caixa_lancamentos", caixa_map),
                     ("contas_vencer", conta_map),
                     ("cartoes", cartao_map),
                     ("modulos_divida", modulo_map),
@@ -138,6 +137,37 @@ def merge_missing_users_sqlite(base_db_path: Path, extra_db_path: Path) -> int:
                             vals,
                         )
                         id_map[int(row["id"])] = int(ins.lastrowid)
+
+                # 2. Lançamentos do Caixa com remapeamento íntegro de `origem_ref_id`
+                if "caixa_lancamentos" in extra_tables and "caixa_lancamentos" in base_tables:
+                    e_cols = _cols(extra_conn, "caixa_lancamentos")
+                    b_cols = [
+                        c for c in _cols(base_conn, "caixa_lancamentos") if c != "id" and c in e_cols
+                    ]
+                    origem_maps = {
+                        "conta": conta_map,
+                        "cartao": cartao_map,
+                        "modulo_divida": modulo_map,
+                    }
+                    for row in extra_conn.execute(
+                        "SELECT * FROM caixa_lancamentos WHERE usuario_id = ? ORDER BY id ASC",
+                        (old_uid,),
+                    ).fetchall():
+                        origem_tipo = str(row["origem_tipo"]) if "origem_tipo" in e_cols else "manual"
+                        ref_map = origem_maps.get(origem_tipo)
+                        vals = []
+                        for c in b_cols:
+                            v = row[c]
+                            if c == "usuario_id":
+                                v = new_uid
+                            elif c == "origem_ref_id" and v is not None and ref_map is not None:
+                                v = ref_map.get(int(v))
+                            vals.append(v)
+                        ins = base_conn.execute(
+                            f"INSERT INTO caixa_lancamentos ({', '.join(b_cols)}) VALUES ({', '.join('?' for _ in b_cols)})",
+                            vals,
+                        )
+                        caixa_map[int(row["id"])] = int(ins.lastrowid)
 
                 # 2. Pagamentos e compras dependentes
                 dep_specs = [

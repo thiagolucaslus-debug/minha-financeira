@@ -60,8 +60,8 @@ def list_contas(
             ocorrencias.append(occ)
 
     ocorrencias.sort(key=lambda x: (x["pago"], x["data_vencimento"], x["nome"]))
-    total_cent = sum(o["valor_centavos"] for o in ocorrencias)
-    pago_cent = sum(o["valor_centavos"] for o in ocorrencias if o["pago"])
+    total_cent = sum(o["valor_efetivo_centavos"] for o in ocorrencias)
+    pago_cent = sum(o["valor_efetivo_centavos"] for o in ocorrencias if o["pago"])
 
     return {
         "competencia": comp,
@@ -207,6 +207,14 @@ def pagar_conta(
     if conta is None:
         raise HTTPException(status_code=404, detail="Conta não encontrada.")
 
+    today = today_brt()
+    occ_check = conta_occurrence_for_month(conta, req.competencia, None, today)
+    if occ_check is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Esta conta não possui vencimento ativo nesta competência.",
+        )
+
     existing = db.scalar(
         select(ContaPagamento).where(
             ContaPagamento.conta_id == conta.id,
@@ -264,6 +272,10 @@ def estornar_pagamento_conta(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user),
 ):
+    try:
+        parse_competencia(competencia)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     conta = db.scalar(
         select(ContaVencer).where(ContaVencer.id == conta_id, ContaVencer.usuario_id == current_user.id)
     )

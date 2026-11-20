@@ -15,13 +15,16 @@ import {
   formatDateBR,
   formatShortDateBR,
   getTodayISO,
+  shiftCompetencia,
 } from '../utils/format';
 import { ColorPickerField } from '../components/ColorPickerField';
 import { Modal } from '../components/Modal';
 import { VisualCard } from '../components/VisualCard';
 import { useToast } from '../components/Toast';
 
-export function CartoesPage({ competencia, refreshSignal, onGlobalMutate }) {
+const COMPRA_CATS = ['Compras', 'Mercado', 'Alimentação', 'Combustível', 'Farmácia', 'Eletrônicos', 'Lazer', 'Outros'];
+
+export function CartoesPage({ competencia, onChangeCompetencia, refreshSignal, onGlobalMutate }) {
   const { notify } = useToast();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -29,6 +32,7 @@ export function CartoesPage({ competencia, refreshSignal, onGlobalMutate }) {
 
   const [cardModalOpen, setCardModalOpen] = useState(false);
   const [editingCard, setEditingCard] = useState(null);
+  const [deleteCardTarget, setDeleteCardTarget] = useState(null);
   const [cardForm, setCardForm] = useState({
     nome: '',
     bandeira: 'Mastercard Black',
@@ -126,22 +130,37 @@ export function CartoesPage({ competencia, refreshSignal, onGlobalMutate }) {
         notify(`Cartão "${payload.nome}" criado!`);
       }
       setCardModalOpen(false);
-      load();
-      onGlobalMutate?.();
+      if (onGlobalMutate) onGlobalMutate();
+      else load();
     } catch (err) {
       notify(err.message || 'Erro ao salvar cartão.', 'error');
     }
   };
 
-  const handleDeleteCard = async (card) => {
+  const handleConfirmDeleteCard = async () => {
+    if (!deleteCardTarget) return;
     try {
-      await api.deleteCartao(card.id);
-      notify(`Cartão "${card.nome}" removido.`);
-      load();
-      onGlobalMutate?.();
+      await api.deleteCartao(deleteCardTarget.id);
+      notify(`Cartão "${deleteCardTarget.nome}" removido.`);
+      setDeleteCardTarget(null);
+      if (onGlobalMutate) onGlobalMutate();
+      else load();
     } catch (err) {
       notify(err.message || 'Erro ao excluir cartão.', 'error');
     }
+  };
+
+  const openCompraModal = () => {
+    setCompraForm({
+      descricao: '',
+      categoria: 'Compras',
+      valor: '',
+      modo_valor: 'total',
+      parcelas_total: '1',
+      data_compra: getTodayISO(),
+      competencia_inicial: '',
+    });
+    setCompraModalOpen(true);
   };
 
   const handleAddCompra = async (e) => {
@@ -172,8 +191,8 @@ export function CartoesPage({ competencia, refreshSignal, onGlobalMutate }) {
         data_compra: getTodayISO(),
         competencia_inicial: '',
       });
-      load();
-      onGlobalMutate?.();
+      if (onGlobalMutate) onGlobalMutate();
+      else load();
     } catch (err) {
       notify(err.message || 'Erro ao lançar compra.', 'error');
     }
@@ -184,8 +203,8 @@ export function CartoesPage({ competencia, refreshSignal, onGlobalMutate }) {
     try {
       await api.deleteCartaoCompra(selectedCard.id, compraId);
       notify('Compra removida da fatura.');
-      load();
-      onGlobalMutate?.();
+      if (onGlobalMutate) onGlobalMutate();
+      else load();
     } catch (err) {
       notify(err.message || 'Erro ao remover compra.', 'error');
     }
@@ -200,8 +219,8 @@ export function CartoesPage({ competencia, refreshSignal, onGlobalMutate }) {
       });
       notify(`Fatura de ${selectedCard.nome} marcada como paga!`);
       setPayModalOpen(false);
-      load();
-      onGlobalMutate?.();
+      if (onGlobalMutate) onGlobalMutate();
+      else load();
     } catch (err) {
       notify(err.message || 'Erro ao pagar fatura.', 'error');
     }
@@ -212,8 +231,8 @@ export function CartoesPage({ competencia, refreshSignal, onGlobalMutate }) {
     try {
       await api.estornarCartao(selectedCard.id, competencia);
       notify(`Pagamento da fatura ${selectedCard.nome} estornado.`);
-      load();
-      onGlobalMutate?.();
+      if (onGlobalMutate) onGlobalMutate();
+      else load();
     } catch (err) {
       notify(err.message || 'Erro ao estornar fatura.', 'error');
     }
@@ -234,7 +253,7 @@ export function CartoesPage({ competencia, refreshSignal, onGlobalMutate }) {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
-          <div className="text-xs font-semibold uppercase tracking-[0.2em] text-gold-400">
+          <div className="text-xs font-semibold uppercase tracking-[0.2em] text-gold-700 dark:text-gold-400">
             Meus Cartões · {formatCompetenciaFull(competencia)}
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[var(--text-primary)] mt-1">
@@ -264,7 +283,7 @@ export function CartoesPage({ competencia, refreshSignal, onGlobalMutate }) {
         </div>
         <div className="glass-panel rounded-2xl p-4">
           <div className="text-[11px] uppercase font-semibold text-[var(--text-muted)]">Pagas</div>
-          <div className="text-lg sm:text-2xl font-extrabold text-emerald-400 tabular-nums mt-1">
+          <div className="text-lg sm:text-2xl font-extrabold text-emerald-700 dark:text-emerald-400 tabular-nums mt-1">
             {formatBRL(data?.resumo?.total_pago || 0)}
           </div>
         </div>
@@ -272,7 +291,7 @@ export function CartoesPage({ competencia, refreshSignal, onGlobalMutate }) {
           <div className="text-[11px] uppercase font-semibold text-[var(--text-muted)]">
             A pagar
           </div>
-          <div className="text-lg sm:text-2xl font-extrabold text-gold-400 tabular-nums mt-1">
+          <div className="text-lg sm:text-2xl font-extrabold text-gold-700 dark:text-gold-400 tabular-nums mt-1">
             {formatBRL(data?.resumo?.total_pendente || 0)}
           </div>
         </div>
@@ -285,7 +304,7 @@ export function CartoesPage({ competencia, refreshSignal, onGlobalMutate }) {
         </div>
       ) : (data?.itens || []).length === 0 ? (
         <div className="glass-panel rounded-3xl p-12 text-center space-y-3">
-          <CreditCard className="w-9 h-9 text-gold-400 mx-auto" />
+          <CreditCard className="w-9 h-9 text-gold-700 dark:text-gold-400 mx-auto" />
           <div className="text-base font-bold text-[var(--text-primary)]">
             Nenhum cartão cadastrado ainda
           </div>
@@ -336,7 +355,7 @@ export function CartoesPage({ competencia, refreshSignal, onGlobalMutate }) {
                 <div className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => setCompraModalOpen(true)}
+                    onClick={openCompraModal}
                     data-testid="add-cartao-compra-btn"
                     className="btn-gold rounded-xl px-4 py-2 text-xs inline-flex items-center gap-1.5"
                   >
@@ -348,7 +367,7 @@ export function CartoesPage({ competencia, refreshSignal, onGlobalMutate }) {
                     <button
                       type="button"
                       onClick={handleUndoInvoice}
-                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/35 hover:bg-rose-500/15 hover:text-rose-400"
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/35 hover:bg-rose-500/15 hover:text-rose-700 dark:hover:text-rose-400"
                     >
                       <CheckCircle2 className="w-3.5 h-3.5" /> Fatura Paga <Undo2 className="w-3 h-3" />
                     </button>
@@ -360,7 +379,7 @@ export function CartoesPage({ competencia, refreshSignal, onGlobalMutate }) {
                           setLancarNoCaixa(true);
                           setPayModalOpen(true);
                         }}
-                        className="px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/35 hover:bg-emerald-500/25"
+                        className="px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/35 hover:bg-emerald-500/25"
                       >
                         Pagar Fatura ({formatBRL(selectedCard.total_fatura)})
                       </button>
@@ -371,15 +390,15 @@ export function CartoesPage({ competencia, refreshSignal, onGlobalMutate }) {
                     type="button"
                     onClick={() => openEditCard(selectedCard)}
                     aria-label="Editar cartão"
-                    className="p-2 rounded-xl bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:text-gold-400"
+                    className="p-2 rounded-xl bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:text-gold-700 dark:hover:text-gold-400"
                   >
                     <Edit3 className="w-4 h-4" />
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleDeleteCard(selectedCard)}
+                    onClick={() => setDeleteCardTarget(selectedCard)}
                     aria-label="Excluir cartão"
-                    className="p-2 rounded-xl bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:text-rose-400"
+                    className="p-2 rounded-xl bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:text-rose-600 dark:hover:text-rose-400"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -387,11 +406,22 @@ export function CartoesPage({ competencia, refreshSignal, onGlobalMutate }) {
               </div>
 
               {selectedCard.itens.length === 0 ? (
-                <div className="py-8 text-center text-xs text-[var(--text-muted)] space-y-1.5">
+                <div className="py-8 text-center text-xs text-[var(--text-muted)] space-y-2.5">
                   <div>Nenhuma compra lançada na fatura de {formatCompetenciaFull(competencia)}.</div>
                   {selectedCard.total_futuro > 0 && (
-                    <div className="text-gold-400 font-semibold">
-                      Você tem {formatBRL(selectedCard.total_futuro)} projetados nos próximos meses — avance o mês no topo para conferir.
+                    <div className="space-y-2">
+                      <div className="text-gold-700 dark:text-gold-400 font-semibold">
+                        Você tem {formatBRL(selectedCard.total_futuro)} projetados nos próximos meses.
+                      </div>
+                      {onChangeCompetencia && (
+                        <button
+                          type="button"
+                          onClick={() => onChangeCompetencia(shiftCompetencia(competencia, 1))}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-gold-500/15 text-gold-700 dark:text-gold-400 border border-gold-500/35 text-xs font-bold hover:bg-gold-500/25 transition"
+                        >
+                          Ver próxima fatura →
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -407,7 +437,7 @@ export function CartoesPage({ competencia, refreshSignal, onGlobalMutate }) {
                           <span className="text-sm font-bold text-[var(--text-primary)] truncate">
                             {item.descricao}
                           </span>
-                          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-gold-500/15 text-gold-400 border border-gold-500/30">
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-gold-500/15 text-gold-700 dark:text-gold-400 border border-gold-500/35">
                             {item.parcelas_total > 1
                               ? `Parcela ${item.parcela_atual}/${item.parcelas_total}`
                               : 'À vista'}
@@ -624,10 +654,32 @@ export function CartoesPage({ competencia, refreshSignal, onGlobalMutate }) {
           </div>
 
           {compraNum > 0 && (
-            <div className="rounded-xl bg-gold-500/12 border border-gold-500/30 px-3.5 py-2.5 text-xs text-gold-300 font-semibold tabular-nums">
+            <div className="rounded-xl bg-gold-500/12 border border-gold-500/35 px-3.5 py-2.5 text-xs text-gold-700 dark:text-gold-300 font-semibold tabular-nums">
               Prévia: {compraParcelas}x de {formatBRL(previewParcela)} · Total {formatBRL(previewTotal)}
             </div>
           )}
+
+          <div>
+            <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1.5">
+              Categoria
+            </label>
+            <div className="flex flex-wrap gap-1.5">
+              {COMPRA_CATS.map((cat) => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setCompraForm({ ...compraForm, categoria: cat })}
+                  className={`px-2.5 py-1 rounded-xl text-xs font-semibold border transition ${
+                    compraForm.categoria === cat
+                      ? 'bg-gold-500/20 border-gold-500/50 text-gold-700 dark:text-gold-300'
+                      : 'bg-[var(--bg-elevated)] border-[var(--border-subtle)] text-[var(--text-secondary)]'
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+          </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -690,6 +742,39 @@ export function CartoesPage({ competencia, refreshSignal, onGlobalMutate }) {
           <button type="button" onClick={handlePayInvoice} className="w-full btn-gold rounded-2xl py-3 text-sm">
             Confirmar Pagamento da Fatura
           </button>
+        </div>
+      </Modal>
+
+      {/* Modal Confirmar Exclusão de Cartão */}
+      <Modal
+        open={Boolean(deleteCardTarget)}
+        onClose={() => setDeleteCardTarget(null)}
+        title="Excluir Cartão?"
+        subtitle={deleteCardTarget ? deleteCardTarget.nome : ''}
+        maxWidth="max-w-md"
+      >
+        <div className="space-y-4">
+          <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+            Isso excluirá o cartão <strong>{deleteCardTarget?.nome}</strong>, todas as compras
+            lançadas nele e estornará eventuais baixas de fatura vinculadas ao Caixa. Para apagar
+            apenas uma compra sem perder o cartão, use a lixeira ao lado da compra.
+          </p>
+          <div className="flex gap-2.5">
+            <button
+              type="button"
+              onClick={() => setDeleteCardTarget(null)}
+              className="flex-1 py-3 rounded-2xl bg-[var(--bg-elevated)] text-sm font-semibold text-[var(--text-secondary)]"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirmDeleteCard}
+              className="flex-1 py-3 rounded-2xl bg-rose-600 text-white font-bold text-sm hover:bg-rose-700 transition"
+            >
+              Excluir Cartão
+            </button>
+          </div>
         </div>
       </Modal>
     </div>

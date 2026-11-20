@@ -97,23 +97,28 @@ def painel_resumo(
         for m in months_6
     ]
 
-    # Distribuição de saídas (por categoria do Caixa + compromissos pendentes do Radar)
+    # Distribuição de saídas (por categoria do Caixa + compromissos pendentes do mês selecionado)
     dist_map: dict[str, int] = {}
+    dist_colors: dict[str, str] = {}
     for row in caixa_mes:
         if row.tipo == "saida":
             cat = row.categoria or "Outros"
             dist_map[cat] = dist_map.get(cat, 0) + row.valor_centavos
     for it in radar["itens"]:
+        if it.get("fora_competencia"):
+            continue
         if not it["pago"] and it["valor_centavos"] > 0:
             label = it["titulo"]
             dist_map[label] = dist_map.get(label, 0) + it["valor_centavos"]
+            if it.get("cor_hex"):
+                dist_colors[label] = it["cor_hex"]
 
     sorted_dist = sorted(dist_map.items(), key=lambda kv: kv[1], reverse=True)[:8]
     distribuicao = [
         {
             "nome": nome,
             "valor": centavos_to_brl(val),
-            "cor": CHART_COLORS[idx % len(CHART_COLORS)],
+            "cor": dist_colors.get(nome) or CHART_COLORS[idx % len(CHART_COLORS)],
         }
         for idx, (nome, val) in enumerate(sorted_dist)
     ]

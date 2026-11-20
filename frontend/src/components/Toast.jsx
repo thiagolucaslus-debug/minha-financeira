@@ -24,7 +24,7 @@ export function ToastProvider({ children }) {
   return (
     <ToastContext.Provider value={{ notify }}>
       {children}
-      <div className="fixed bottom-24 lg:bottom-6 left-1/2 -translate-x-1/2 z-[70] flex flex-col items-center gap-2 max-w-md w-[calc(100%-2rem)] pointer-events-none">
+      <div className="fixed top-4 left-1/2 -translate-x-1/2 sm:left-auto sm:translate-x-0 sm:right-5 sm:top-5 z-[70] flex flex-col items-center sm:items-end gap-2 max-w-md w-[calc(100%-2rem)] sm:w-auto pointer-events-none">
         {toasts.map((t) => {
           const Icon =
             t.type === 'error' ? AlertCircle : t.type === 'info' ? Info : CheckCircle2;

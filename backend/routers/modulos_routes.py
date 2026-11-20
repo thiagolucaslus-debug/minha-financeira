@@ -81,8 +81,8 @@ def list_modulos(
         build_modulo_month_view(m, compras_map.get(m.id, []), pags_map.get(m.id, []), comp, today)
         for m in modulos
     ]
-    total_mes_cent = sum(v["total_mes_centavos"] for v in views)
-    total_pago_cent = sum(v["total_mes_centavos"] for v in views if v["pago"])
+    total_mes_cent = sum(v["valor_efetivo_centavos"] for v in views)
+    total_pago_cent = sum(v["valor_efetivo_centavos"] for v in views if v["pago"])
 
     return {
         "competencia": comp,
@@ -340,6 +340,10 @@ def estornar_modulo_mes(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user),
 ):
+    try:
+        parse_competencia(competencia)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     pag = db.scalar(
         select(ModuloFaturaPagamento).where(
             ModuloFaturaPagamento.modulo_id == modulo_id,

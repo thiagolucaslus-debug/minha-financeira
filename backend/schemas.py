@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import math
 import re
 from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
-from services.dates import COMPETENCIA_RE, ISO_DATE_RE
+from services.dates import COMPETENCIA_RE, brl_to_centavos, parse_iso_date
 
 HEX_COLOR_RE = re.compile(r"^#[0-9A-Fa-f]{6}$")
 
@@ -28,9 +29,39 @@ def _validate_competencia(v: str) -> str:
 
 def _validate_iso_date(v: str) -> str:
     cleaned = (v or "").strip()
-    if not ISO_DATE_RE.match(cleaned):
-        raise ValueError("Data inválida. Use o formato YYYY-MM-DD.")
+    try:
+        parsed = parse_iso_date(cleaned)
+    except ValueError as exc:
+        raise ValueError("Data inválida. Informe uma data real no formato YYYY-MM-DD.") from exc
+    return parsed.isoformat()
+
+
+def _validate_required_text(v: str) -> str:
+    cleaned = (v or "").strip()
+    if not cleaned:
+        raise ValueError("Campo obrigatório não pode ficar em branco.")
     return cleaned
+
+
+def _validate_optional_text(v: str | None) -> str | None:
+    if v is None:
+        return None
+    cleaned = v.strip()
+    if not cleaned:
+        raise ValueError("Campo não pode ficar em branco.")
+    return cleaned
+
+
+def _validate_positive_money(v: float) -> float:
+    if not math.isfinite(v) or brl_to_centavos(v) < 1:
+        raise ValueError("Informe um valor válido de pelo menos R$ 0,01.")
+    return float(v)
+
+
+def _validate_non_negative_money(v: float) -> float:
+    if not math.isfinite(v) or v < 0:
+        raise ValueError("Informe um valor numérico válido maior ou igual a zero.")
+    return float(v)
 
 
 # ---------------------------------------------------------------------------
@@ -103,7 +134,7 @@ class CaixaCreateRequest(BaseModel):
     tipo: Literal["entrada", "saida"]
     descricao: str = Field(..., min_length=1, max_length=180)
     categoria: str = Field(default="Geral", min_length=1, max_length=80)
-    valor: float = Field(..., gt=0, le=100_000_000)
+    valor: float = Field(..., ge=0.01, le=100_000_000)
     data: str | None = None
     forma_pagamento: str = Field(default="PIX", max_length=40)
     observacao: str = Field(default="", max_length=500)
@@ -111,10 +142,12 @@ class CaixaCreateRequest(BaseModel):
     @field_validator("descricao", "categoria", "forma_pagamento")
     @classmethod
     def _strip_text(cls, v: str) -> str:
-        c = v.strip()
-        if not c:
-            raise ValueError("Campo obrigatório não pode ficar em branco.")
-        return c
+        return _validate_required_text(v)
+
+    @field_validator("valor")
+    @classmethod
+    def _v_valor(cls, v: float) -> float:
+        return _validate_positive_money(v)
 
     @field_validator("data")
     @classmethod
@@ -126,10 +159,20 @@ class CaixaUpdateRequest(BaseModel):
     tipo: Literal["entrada", "saida"] | None = None
     descricao: str | None = Field(default=None, min_length=1, max_length=180)
     categoria: str | None = Field(default=None, min_length=1, max_length=80)
-    valor: float | None = Field(default=None, gt=0, le=100_000_000)
+    valor: float | None = Field(default=None, ge=0.01, le=100_000_000)
     data: str | None = None
     forma_pagamento: str | None = Field(default=None, max_length=40)
     observacao: str | None = Field(default=None, max_length=500)
+
+    @field_validator("descricao", "categoria", "forma_pagamento")
+    @classmethod
+    def _strip_opt_text(cls, v: str | None) -> str | None:
+        return _validate_optional_text(v)
+
+    @field_validator("valor")
+    @classmethod
+    def _v_valor(cls, v: float | None) -> float | None:
+        return _validate_positive_money(v) if v is not None else None
 
     @field_validator("data")
     @classmethod
@@ -144,12 +187,22 @@ class ContaCreateRequest(BaseModel):
     nome: str = Field(..., min_length=1, max_length=160)
     categoria: str = Field(default="Contas Fixas", min_length=1, max_length=80)
     tipo: Literal["fixa", "parcelada"] = "fixa"
-    valor: float = Field(..., gt=0, le=100_000_000)
+    valor: float = Field(..., ge=0.01, le=100_000_000)
     dia_vencimento: int = Field(..., ge=1, le=31)
     competencia_inicio: str | None = None
     parcelas_total: int | None = Field(default=None, ge=1, le=480)
     cor_hex: str = "#C9A45C"
     observacao: str = Field(default="", max_length=500)
+
+    @field_validator("nome", "categoria")
+    @classmethod
+    def _strip_text(cls, v: str) -> str:
+        return _validate_required_text(v)
+
+    @field_validator("valor")
+    @classmethod
+    def _v_valor(cls, v: float) -> float:
+        return _validate_positive_money(v)
 
     @field_validator("cor_hex")
     @classmethod
@@ -166,13 +219,23 @@ class ContaUpdateRequest(BaseModel):
     nome: str | None = Field(default=None, min_length=1, max_length=160)
     categoria: str | None = Field(default=None, min_length=1, max_length=80)
     tipo: Literal["fixa", "parcelada"] | None = None
-    valor: float | None = Field(default=None, gt=0, le=100_000_000)
+    valor: float | None = Field(default=None, ge=0.01, le=100_000_000)
     dia_vencimento: int | None = Field(default=None, ge=1, le=31)
     competencia_inicio: str | None = None
     parcelas_total: int | None = Field(default=None, ge=1, le=480)
     cor_hex: str | None = None
     observacao: str | None = Field(default=None, max_length=500)
     ativo: bool | None = None
+
+    @field_validator("nome", "categoria")
+    @classmethod
+    def _strip_opt_text(cls, v: str | None) -> str | None:
+        return _validate_optional_text(v)
+
+    @field_validator("valor")
+    @classmethod
+    def _v_valor(cls, v: float | None) -> float | None:
+        return _validate_positive_money(v) if v is not None else None
 
     @field_validator("cor_hex")
     @classmethod
@@ -188,7 +251,7 @@ class ContaUpdateRequest(BaseModel):
 class PagarMensalRequest(BaseModel):
     competencia: str
     lancar_no_caixa: bool = True
-    valor_pago: float | None = Field(default=None, gt=0, le=100_000_000)
+    valor_pago: float | None = Field(default=None, ge=0.01, le=100_000_000)
     data_pagamento: str | None = None
     forma_pagamento: str = Field(default="PIX", max_length=40)
 
@@ -196,6 +259,11 @@ class PagarMensalRequest(BaseModel):
     @classmethod
     def _v_comp(cls, v: str) -> str:
         return _validate_competencia(v)
+
+    @field_validator("valor_pago")
+    @classmethod
+    def _v_vp(cls, v: float | None) -> float | None:
+        return _validate_positive_money(v) if v is not None else None
 
     @field_validator("data_pagamento")
     @classmethod
@@ -214,6 +282,16 @@ class CartaoCreateRequest(BaseModel):
     limite: float = Field(default=0, ge=0, le=100_000_000)
     dia_fechamento: int = Field(..., ge=1, le=31)
     dia_vencimento: int = Field(..., ge=1, le=31)
+
+    @field_validator("nome")
+    @classmethod
+    def _v_nome(cls, v: str) -> str:
+        return _validate_required_text(v)
+
+    @field_validator("limite")
+    @classmethod
+    def _v_lim(cls, v: float) -> float:
+        return _validate_non_negative_money(v)
 
     @field_validator("cor_hex")
     @classmethod
@@ -237,6 +315,16 @@ class CartaoUpdateRequest(BaseModel):
     dia_vencimento: int | None = Field(default=None, ge=1, le=31)
     ativo: bool | None = None
 
+    @field_validator("nome")
+    @classmethod
+    def _v_nome(cls, v: str | None) -> str | None:
+        return _validate_optional_text(v)
+
+    @field_validator("limite")
+    @classmethod
+    def _v_lim(cls, v: float | None) -> float | None:
+        return _validate_non_negative_money(v) if v is not None else None
+
     @field_validator("cor_hex")
     @classmethod
     def _v_hex(cls, v: str | None) -> str | None:
@@ -254,11 +342,21 @@ class CompraCreateRequest(BaseModel):
     descricao: str = Field(..., min_length=1, max_length=180)
     categoria: str = Field(default="Compras", min_length=1, max_length=80)
     data_compra: str | None = None
-    valor: float = Field(..., gt=0, le=100_000_000)
+    valor: float = Field(..., ge=0.01, le=100_000_000)
     modo_valor: Literal["total", "parcela"] = "total"
     parcelas_total: int = Field(default=1, ge=1, le=72)
     competencia_inicial: str | None = None
     observacao: str = Field(default="", max_length=500)
+
+    @field_validator("descricao", "categoria")
+    @classmethod
+    def _strip_text(cls, v: str) -> str:
+        return _validate_required_text(v)
+
+    @field_validator("valor")
+    @classmethod
+    def _v_valor(cls, v: float) -> float:
+        return _validate_positive_money(v)
 
     @field_validator("data_compra")
     @classmethod
@@ -282,6 +380,16 @@ class ModuloDividaCreateRequest(BaseModel):
     dia_vencimento: int = Field(..., ge=1, le=31)
     limite: float = Field(default=0, ge=0, le=100_000_000)
 
+    @field_validator("nome")
+    @classmethod
+    def _v_nome(cls, v: str) -> str:
+        return _validate_required_text(v)
+
+    @field_validator("limite")
+    @classmethod
+    def _v_lim(cls, v: float) -> float:
+        return _validate_non_negative_money(v)
+
     @field_validator("cor_hex")
     @classmethod
     def _v_hex(cls, v: str) -> str:
@@ -296,6 +404,16 @@ class ModuloDividaUpdateRequest(BaseModel):
     dia_vencimento: int | None = Field(default=None, ge=1, le=31)
     limite: float | None = Field(default=None, ge=0, le=100_000_000)
     ativo: bool | None = None
+
+    @field_validator("nome")
+    @classmethod
+    def _v_nome(cls, v: str | None) -> str | None:
+        return _validate_optional_text(v)
+
+    @field_validator("limite")
+    @classmethod
+    def _v_lim(cls, v: float | None) -> float | None:
+        return _validate_non_negative_money(v) if v is not None else None
 
     @field_validator("cor_hex")
     @classmethod

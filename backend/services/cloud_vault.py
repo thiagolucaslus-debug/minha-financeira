@@ -370,13 +370,19 @@ class CloudVaultManager:
             st["sync_result"] = sync_res
         return st
 
-    def sync_now(self, *, force: bool = False, reason: str = "manual") -> dict[str, Any]:
+    def sync_now(
+        self,
+        *,
+        force: bool = False,
+        reason: str = "manual",
+        allow_destructive_overwrite: bool = False,
+    ) -> dict[str, Any]:
         if not self.is_vault_connected():
             return {"ok": False, "skipped": True, "reason": "not_connected"}
         if not self.db_path.is_file():
             return {"ok": False, "skipped": True, "reason": "local_db_missing"}
 
-        if not force and self._boot_restore_failed:
+        if not allow_destructive_overwrite and self._boot_restore_failed:
             retry_res = self.restore_from_vault(force=False, on_boot=True)
             if not retry_res.get("ok"):
                 return {
@@ -418,13 +424,19 @@ class CloudVaultManager:
                 remote_rev = int(remote_manifest.get("revision") or 0)
                 remote_sha = str(remote_manifest.get("db_sha256") or "")
 
-                if not force and remote_users > 0 and local_users == 0:
+                if not allow_destructive_overwrite and remote_users > 0 and local_users == 0:
                     msg = "Proteção anti-perda ativada: o cofre possui perfis salvos e o banco local está vazio."
                     with self._state_lock:
                         self._last_error = msg
                     return {"ok": False, "blocked_anti_wipe": True, "detail": msg}
 
-                if not force and local_rev == 0 and remote_rev > 0 and remote_sha and remote_sha != snap_info["sha256"]:
+                if (
+                    not allow_destructive_overwrite
+                    and local_rev == 0
+                    and remote_rev > 0
+                    and remote_sha
+                    and remote_sha != snap_info["sha256"]
+                ):
                     msg = f"Proteção anti-perda ativada: o cofre já possui revisão ativa (#{remote_rev})."
                     with self._state_lock:
                         self._last_error = msg

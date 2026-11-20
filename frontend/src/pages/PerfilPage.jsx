@@ -98,6 +98,15 @@ export function PerfilPage() {
     }
   };
 
+  const handleToggleTheme = () => {
+    const next = theme === 'dark' ? 'light' : 'dark';
+    toggleTheme();
+    if (user) {
+      setUser((prev) => (prev ? { ...prev, tema_preferido: next } : prev));
+      api.updateMe({ tema_preferido: next }).catch(() => {});
+    }
+  };
+
   const handleInstallPwa = async () => {
     if (!deferredPrompt) return;
     deferredPrompt.prompt();
@@ -108,7 +117,7 @@ export function PerfilPage() {
   return (
     <div className="space-y-6 max-w-4xl">
       <div>
-        <div className="text-xs font-semibold uppercase tracking-[0.2em] text-gold-400">
+        <div className="text-xs font-semibold uppercase tracking-[0.2em] text-gold-700 dark:text-gold-400">
           Conta, Segurança & Nuvem 24/7
         </div>
         <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[var(--text-primary)] mt-1">
@@ -120,7 +129,7 @@ export function PerfilPage() {
         {/* Dados do Perfil */}
         <form onSubmit={handleSaveProfile} className="glass-panel rounded-3xl p-5 sm:p-6 space-y-4">
           <div className="flex items-center gap-2.5 text-sm font-extrabold text-[var(--text-primary)]">
-            <UserCheck className="w-5 h-5 text-gold-400" />
+            <UserCheck className="w-5 h-5 text-gold-700 dark:text-gold-400" />
             Dados do Perfil
           </div>
           <div>
@@ -153,7 +162,7 @@ export function PerfilPage() {
         {/* Alterar Senha */}
         <form onSubmit={handleChangePassword} className="glass-panel rounded-3xl p-5 sm:p-6 space-y-4">
           <div className="flex items-center gap-2.5 text-sm font-extrabold text-[var(--text-primary)]">
-            <KeyRound className="w-5 h-5 text-emerald-400" />
+            <KeyRound className="w-5 h-5 text-emerald-700 dark:text-emerald-400" />
             Alterar Senha
           </div>
           <div>
@@ -198,10 +207,11 @@ export function PerfilPage() {
           </div>
           <button
             type="button"
-            onClick={toggleTheme}
+            onClick={handleToggleTheme}
+            data-testid="perfil-theme-toggle-btn"
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[var(--bg-elevated)] border border-[var(--border-subtle)] text-xs font-bold text-[var(--text-primary)] hover:border-gold-500/40"
           >
-            {theme === 'dark' ? <Sun className="w-4 h-4 text-gold-400" /> : <Moon className="w-4 h-4 text-gold-500" />}
+            {theme === 'dark' ? <Sun className="w-4 h-4 text-gold-400" /> : <Moon className="w-4 h-4 text-gold-700" />}
             {theme === 'dark' ? 'Mudar p/ Claro' : 'Mudar p/ Escuro'}
           </button>
         </div>
@@ -228,7 +238,7 @@ export function PerfilPage() {
       <div className="glass-panel-gold rounded-3xl p-5 sm:p-6 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center border border-emerald-500/30">
+            <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 flex items-center justify-center border border-emerald-500/35">
               <Cloud className="w-5 h-5" />
             </div>
             <div>
@@ -249,7 +259,7 @@ export function PerfilPage() {
                 type="button"
                 onClick={handleSyncVault}
                 disabled={syncing}
-                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/35 text-xs font-bold"
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/35 text-xs font-bold"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />
                 Sincronizar Agora

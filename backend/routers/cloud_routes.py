@@ -64,9 +64,15 @@ def sync_vault_now(_current_user: Usuario = Depends(get_current_user)):
     if not mgr.is_vault_connected():
         raise HTTPException(status_code=400, detail="Cofre em nuvem não configurado neste ambiente.")
     try:
-        return mgr.sync_now(force=True, reason="manual_user_sync")
+        res = mgr.sync_now(force=True, reason="manual_user_sync")
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Falha ao sincronizar com o cofre: {exc}") from exc
+    if res.get("blocked_anti_wipe") or res.get("blocked_boot_restore_pending"):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=res.get("detail") or "Sincronização bloqueada pela proteção anti-perda.",
+        )
+    return res
 
 
 @router.get("/backup/export")

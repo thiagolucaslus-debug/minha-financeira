@@ -155,6 +155,18 @@ def test_vault_sync_container_wipe_restore_and_anti_wipe(tmp_path: Path):
     assert blocked["ok"] is False
     assert blocked["blocked_anti_wipe"] is True
 
+    # Mesmo force=True (ex.: botão manual "Sincronizar Agora") NÃO pode sobrescrever cofre populado com banco vazio!
+    blocked_force = mgr_c.sync_now(force=True, reason="manual_user_sync")
+    assert blocked_force["ok"] is False
+    assert blocked_force["blocked_anti_wipe"] is True
+
+    # E quando _boot_restore_failed=True, sync_now(force=True) tenta restaurar primeiro em vez de apagar o cofre
+    mgr_c._boot_restore_failed = True
+    recovered = mgr_c.sync_now(force=True, reason="manual_user_sync")
+    assert recovered["ok"] is True
+    assert recovered["action"] == "restored_after_boot_retry"
+    assert recovered["counts"]["usuarios"] == 1
+
 
 def test_per_user_isolated_backup_zip_and_hydrate_auth(client, tmp_path: Path, monkeypatch):
     h_a = register_and_headers(client, "User A", "user_a")
@@ -219,6 +231,7 @@ def test_merge_missing_users_remaps_foreign_keys(tmp_path: Path):
         c.execute("INSERT INTO usuarios VALUES (1, ?, ?, 'h', 'dark')", (uname, uname))
         c.execute("INSERT INTO modulos_divida VALUES (1, 1, ?, '', '#10B981', 10, 18, 0, 1)", (mod_name,))
         c.execute("INSERT INTO modulo_compras VALUES (1, 1, 1, 'Compra X', 'Dívidas', '2026-05-01', 10000, 2, '2026-05', '')")
+        c.execute("INSERT INTO caixa_lancamentos VALUES (1, 1, 'saida', 'Pag Mod', 'Dívidas', 5000, '2026-05-18', 'PIX', '', 'modulo_divida', 1)")
         c.commit()
         c.close()
 
@@ -229,8 +242,10 @@ def test_merge_missing_users_remaps_foreign_keys(tmp_path: Path):
     users = c.execute("SELECT id, username FROM usuarios ORDER BY id").fetchall()
     mods = c.execute("SELECT id, usuario_id, nome FROM modulos_divida ORDER BY id").fetchall()
     compras = c.execute("SELECT id, usuario_id, modulo_id FROM modulo_compras ORDER BY id").fetchall()
+    caixas = c.execute("SELECT id, usuario_id, origem_tipo, origem_ref_id FROM caixa_lancamentos ORDER BY id").fetchall()
     c.close()
 
     assert users == [(1, "base_user"), (2, "new_user")]
     assert mods == [(1, 1, "Thiago"), (2, 2, "Seu Luiz")]
     assert compras == [(1, 1, 1), (2, 2, 2)]
+    assert caixas == [(1, 1, "modulo_divida", 1), (2, 2, "modulo_divida", 2)]

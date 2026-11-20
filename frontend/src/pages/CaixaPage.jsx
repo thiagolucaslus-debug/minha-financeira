@@ -47,8 +47,8 @@ export function CaixaPage({ competencia, refreshSignal, onGlobalMutate }) {
     try {
       await api.deleteCaixa(item.id);
       notify('Lançamento excluído.');
-      load();
-      onGlobalMutate?.();
+      if (onGlobalMutate) onGlobalMutate();
+      else load();
     } catch (err) {
       notify(err.message || 'Não foi possível excluir.', 'error');
     }
@@ -68,8 +68,8 @@ export function CaixaPage({ competencia, refreshSignal, onGlobalMutate }) {
       });
       notify('Lançamento atualizado!');
       setEditing(null);
-      load();
-      onGlobalMutate?.();
+      if (onGlobalMutate) onGlobalMutate();
+      else load();
     } catch (err) {
       notify(err.message || 'Falha ao atualizar.', 'error');
     }
@@ -81,7 +81,7 @@ export function CaixaPage({ competencia, refreshSignal, onGlobalMutate }) {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
-          <div className="text-xs font-semibold uppercase tracking-[0.2em] text-gold-400">
+          <div className="text-xs font-semibold uppercase tracking-[0.2em] text-gold-700 dark:text-gold-400">
             Caixa Rápido · {formatCompetenciaFull(competencia)}
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[var(--text-primary)] mt-1">
@@ -93,14 +93,14 @@ export function CaixaPage({ competencia, refreshSignal, onGlobalMutate }) {
           <button
             type="button"
             onClick={() => setQuickType('entrada')}
-            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-emerald-500/15 border border-emerald-500/35 text-emerald-400 text-xs sm:text-sm font-bold hover:bg-emerald-500/25"
+            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-emerald-500/15 border border-emerald-500/35 text-emerald-700 dark:text-emerald-400 text-xs sm:text-sm font-bold hover:bg-emerald-500/25"
           >
             <Plus className="w-4 h-4" /> Entrada
           </button>
           <button
             type="button"
             onClick={() => setQuickType('saida')}
-            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-rose-500/15 border border-rose-500/35 text-rose-400 text-xs sm:text-sm font-bold hover:bg-rose-500/25"
+            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-rose-500/15 border border-rose-500/35 text-rose-700 dark:text-rose-400 text-xs sm:text-sm font-bold hover:bg-rose-500/25"
           >
             <Plus className="w-4 h-4" /> Saída
           </button>
@@ -113,7 +113,7 @@ export function CaixaPage({ competencia, refreshSignal, onGlobalMutate }) {
           <div className="text-[11px] uppercase tracking-wider font-semibold text-[var(--text-muted)]">
             Entrou no mês
           </div>
-          <div className="text-lg sm:text-2xl font-extrabold text-emerald-400 tabular-nums mt-1">
+          <div className="text-lg sm:text-2xl font-extrabold text-emerald-700 dark:text-emerald-400 tabular-nums mt-1">
             {formatBRL(mensal.entrou)}
           </div>
         </div>
@@ -121,7 +121,7 @@ export function CaixaPage({ competencia, refreshSignal, onGlobalMutate }) {
           <div className="text-[11px] uppercase tracking-wider font-semibold text-[var(--text-muted)]">
             Saiu no mês
           </div>
-          <div className="text-lg sm:text-2xl font-extrabold text-rose-400 tabular-nums mt-1">
+          <div className="text-lg sm:text-2xl font-extrabold text-rose-600 dark:text-rose-400 tabular-nums mt-1">
             {formatBRL(mensal.saiu)}
           </div>
         </div>
@@ -131,7 +131,9 @@ export function CaixaPage({ competencia, refreshSignal, onGlobalMutate }) {
           </div>
           <div
             className={`text-lg sm:text-2xl font-extrabold tabular-nums mt-1 ${
-              mensal.sobrou >= 0 ? 'text-gold-400' : 'text-rose-400'
+              mensal.sobrou >= 0
+                ? 'text-gold-700 dark:text-gold-400'
+                : 'text-rose-600 dark:text-rose-400'
             }`}
           >
             {formatBRL(mensal.sobrou)}
@@ -154,7 +156,7 @@ export function CaixaPage({ competencia, refreshSignal, onGlobalMutate }) {
               onClick={() => setPeriodo(p.id)}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition ${
                 periodo === p.id
-                  ? 'bg-gold-500/20 text-gold-400 border-gold-500/40'
+                  ? 'bg-gold-500/20 text-gold-700 dark:text-gold-400 border-gold-500/45'
                   : 'bg-[var(--bg-elevated)] text-[var(--text-secondary)] border-[var(--border-subtle)]'
               }`}
             >
@@ -175,7 +177,7 @@ export function CaixaPage({ competencia, refreshSignal, onGlobalMutate }) {
               onClick={() => setTipo(t.id)}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition ${
                 tipo === t.id
-                  ? 'bg-emerald-500/18 text-emerald-400 border-emerald-500/40'
+                  ? 'bg-emerald-500/18 text-emerald-700 dark:text-emerald-400 border-emerald-500/40'
                   : 'bg-[var(--bg-elevated)] text-[var(--text-secondary)] border-[var(--border-subtle)]'
               }`}
             >
@@ -222,8 +224,8 @@ export function CaixaPage({ competencia, refreshSignal, onGlobalMutate }) {
                   <div
                     className={`w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 ${
                       item.tipo === 'entrada'
-                        ? 'bg-emerald-500/15 text-emerald-400'
-                        : 'bg-rose-500/15 text-rose-400'
+                        ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
+                        : 'bg-rose-500/15 text-rose-600 dark:text-rose-400'
                     }`}
                   >
                     {item.tipo === 'entrada' ? (
@@ -249,7 +251,9 @@ export function CaixaPage({ competencia, refreshSignal, onGlobalMutate }) {
                 <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
                   <span
                     className={`text-sm sm:text-base font-extrabold tabular-nums ${
-                      item.tipo === 'entrada' ? 'text-emerald-400' : 'text-rose-400'
+                      item.tipo === 'entrada'
+                        ? 'text-emerald-700 dark:text-emerald-400'
+                        : 'text-rose-600 dark:text-rose-400'
                     }`}
                   >
                     {item.tipo === 'entrada' ? '+' : '-'} {formatBRL(item.valor)}
@@ -371,8 +375,8 @@ export function CaixaPage({ competencia, refreshSignal, onGlobalMutate }) {
         initialType={quickType || 'saida'}
         onClose={() => setQuickType(null)}
         onSaved={() => {
-          load();
-          onGlobalMutate?.();
+          if (onGlobalMutate) onGlobalMutate();
+          else load();
         }}
       />
     </div>

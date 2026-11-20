@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   CalendarCheck2,
   CheckCircle2,
+  Edit3,
   Plus,
   Repeat,
   Trash2,
@@ -23,6 +24,8 @@ export function ContasPage({ competencia, refreshSignal, onGlobalMutate }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
+  const [editingConta, setEditingConta] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
   const [payTarget, setPayTarget] = useState(null);
   const [lancarNoCaixa, setLancarNoCaixa] = useState(true);
 
@@ -52,36 +55,62 @@ export function ContasPage({ competencia, refreshSignal, onGlobalMutate }) {
     load();
   }, [load, refreshSignal]);
 
-  const handleCreate = async (e) => {
+  const openNewConta = () => {
+    setEditingConta(null);
+    setForm({
+      nome: '',
+      categoria: 'Moradia',
+      tipo: 'fixa',
+      valor: '',
+      dia_vencimento: '15',
+      parcelas_total: '12',
+      cor_hex: '#C9A45C',
+      observacao: '',
+    });
+    setCreateOpen(true);
+  };
+
+  const openEditConta = (item) => {
+    setEditingConta(item);
+    setForm({
+      nome: item.nome || '',
+      categoria: item.categoria || 'Moradia',
+      tipo: item.tipo || 'fixa',
+      valor: String(item.valor ?? ''),
+      dia_vencimento: String(item.dia_vencimento ?? 15),
+      parcelas_total: String(item.parcelas_total || 12),
+      cor_hex: item.cor_hex || '#C9A45C',
+      observacao: item.observacao || '',
+    });
+    setCreateOpen(true);
+  };
+
+  const handleSaveConta = async (e) => {
     e.preventDefault();
+    const payload = {
+      nome: form.nome,
+      categoria: form.categoria,
+      tipo: form.tipo,
+      valor: Number(String(form.valor).replace(',', '.')),
+      dia_vencimento: Number(form.dia_vencimento),
+      parcelas_total: form.tipo === 'parcelada' ? Number(form.parcelas_total) : null,
+      cor_hex: form.cor_hex,
+      observacao: form.observacao,
+    };
     try {
-      await api.createConta({
-        nome: form.nome,
-        categoria: form.categoria,
-        tipo: form.tipo,
-        valor: Number(String(form.valor).replace(',', '.')),
-        dia_vencimento: Number(form.dia_vencimento),
-        competencia_inicio: competencia,
-        parcelas_total: form.tipo === 'parcelada' ? Number(form.parcelas_total) : null,
-        cor_hex: form.cor_hex,
-        observacao: form.observacao,
-      });
-      notify(`Conta "${form.nome}" cadastrada!`);
+      if (editingConta) {
+        await api.updateConta(editingConta.id, payload);
+        notify(`Conta "${form.nome}" atualizada!`);
+      } else {
+        await api.createConta({ ...payload, competencia_inicio: competencia });
+        notify(`Conta "${form.nome}" cadastrada!`);
+      }
       setCreateOpen(false);
-      setForm({
-        nome: '',
-        categoria: 'Moradia',
-        tipo: 'fixa',
-        valor: '',
-        dia_vencimento: '15',
-        parcelas_total: '12',
-        cor_hex: '#C9A45C',
-        observacao: '',
-      });
-      load();
-      onGlobalMutate?.();
+      setEditingConta(null);
+      if (onGlobalMutate) onGlobalMutate();
+      else load();
     } catch (err) {
-      notify(err.message || 'Erro ao criar conta.', 'error');
+      notify(err.message || 'Erro ao salvar conta.', 'error');
     }
   };
 
@@ -94,8 +123,8 @@ export function ContasPage({ competencia, refreshSignal, onGlobalMutate }) {
       });
       notify(`Conta "${payTarget.nome}" paga!`);
       setPayTarget(null);
-      load();
-      onGlobalMutate?.();
+      if (onGlobalMutate) onGlobalMutate();
+      else load();
     } catch (err) {
       notify(err.message || 'Falha ao pagar conta.', 'error');
     }
@@ -105,19 +134,21 @@ export function ContasPage({ competencia, refreshSignal, onGlobalMutate }) {
     try {
       await api.estornarConta(item.id, competencia);
       notify(`Baixa de "${item.nome}" estornada.`);
-      load();
-      onGlobalMutate?.();
+      if (onGlobalMutate) onGlobalMutate();
+      else load();
     } catch (err) {
       notify(err.message || 'Falha ao estornar.', 'error');
     }
   };
 
-  const handleDelete = async (item) => {
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
     try {
-      await api.deleteConta(item.id);
-      notify(`Conta "${item.nome}" removida.`);
-      load();
-      onGlobalMutate?.();
+      await api.deleteConta(deleteTarget.id);
+      notify(`Conta "${deleteTarget.nome}" removida.`);
+      setDeleteTarget(null);
+      if (onGlobalMutate) onGlobalMutate();
+      else load();
     } catch (err) {
       notify(err.message || 'Falha ao remover conta.', 'error');
     }
@@ -129,7 +160,7 @@ export function ContasPage({ competencia, refreshSignal, onGlobalMutate }) {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
-          <div className="text-xs font-semibold uppercase tracking-[0.2em] text-gold-400">
+          <div className="text-xs font-semibold uppercase tracking-[0.2em] text-gold-700 dark:text-gold-400">
             Compromissos · {formatCompetenciaFull(competencia)}
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[var(--text-primary)] mt-1">
@@ -139,7 +170,7 @@ export function ContasPage({ competencia, refreshSignal, onGlobalMutate }) {
 
         <button
           type="button"
-          onClick={() => setCreateOpen(true)}
+          onClick={openNewConta}
           data-testid="new-conta-btn"
           className="btn-gold rounded-2xl px-5 py-3 text-sm inline-flex items-center justify-center gap-2"
         >
@@ -158,13 +189,13 @@ export function ContasPage({ competencia, refreshSignal, onGlobalMutate }) {
         </div>
         <div className="glass-panel rounded-2xl p-4">
           <div className="text-[11px] uppercase font-semibold text-[var(--text-muted)]">Pago</div>
-          <div className="text-lg sm:text-2xl font-extrabold text-emerald-400 tabular-nums mt-1">
+          <div className="text-lg sm:text-2xl font-extrabold text-emerald-700 dark:text-emerald-400 tabular-nums mt-1">
             {formatBRL(resumo.pago)}
           </div>
         </div>
         <div className="glass-panel-gold rounded-2xl p-4">
           <div className="text-[11px] uppercase font-semibold text-[var(--text-muted)]">Falta pagar</div>
-          <div className="text-lg sm:text-2xl font-extrabold text-amber-400 tabular-nums mt-1">
+          <div className="text-lg sm:text-2xl font-extrabold text-amber-700 dark:text-amber-400 tabular-nums mt-1">
             {formatBRL(resumo.pendente)}
           </div>
         </div>
@@ -176,7 +207,7 @@ export function ContasPage({ competencia, refreshSignal, onGlobalMutate }) {
           <div className="p-10 text-center text-sm text-[var(--text-muted)]">Carregando contas...</div>
         ) : (data?.itens || []).length === 0 ? (
           <div className="p-12 text-center space-y-2">
-            <CalendarCheck2 className="w-8 h-8 text-gold-400 mx-auto" />
+            <CalendarCheck2 className="w-8 h-8 text-gold-700 dark:text-gold-400 mx-auto" />
             <div className="text-sm font-bold text-[var(--text-primary)]">
               Nenhuma conta cadastrada para {formatCompetenciaFull(competencia)}
             </div>
@@ -204,7 +235,7 @@ export function ContasPage({ competencia, refreshSignal, onGlobalMutate }) {
                           {item.nome}
                         </span>
                         {item.tipo === 'parcelada' ? (
-                          <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-gold-500/15 text-gold-400 border border-gold-500/30">
+                          <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-gold-500/15 text-gold-700 dark:text-gold-400 border border-gold-500/35">
                             Parcela {item.parcela_atual}/{item.parcelas_total}
                           </span>
                         ) : (
@@ -225,15 +256,15 @@ export function ContasPage({ competencia, refreshSignal, onGlobalMutate }) {
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between sm:justify-end gap-2.5 pl-6 sm:pl-0">
-                    <span className="text-base font-extrabold tabular-nums text-[var(--text-primary)]">
+                  <div className="flex items-center justify-between sm:justify-end gap-2 pl-6 sm:pl-0">
+                    <span className="text-base font-extrabold tabular-nums text-[var(--text-primary)] mr-1">
                       {formatBRL(item.valor_efetivo)}
                     </span>
                     {item.pago ? (
                       <button
                         type="button"
                         onClick={() => handleUndo(item)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 hover:bg-rose-500/15 hover:text-rose-400"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/35 hover:bg-rose-500/15 hover:text-rose-700 dark:hover:text-rose-400"
                       >
                         <CheckCircle2 className="w-3.5 h-3.5" /> Pago <Undo2 className="w-3 h-3" />
                       </button>
@@ -251,9 +282,17 @@ export function ContasPage({ competencia, refreshSignal, onGlobalMutate }) {
                     )}
                     <button
                       type="button"
-                      onClick={() => handleDelete(item)}
+                      onClick={() => openEditConta(item)}
+                      aria-label={`Editar conta ${item.nome}`}
+                      className="p-2 rounded-xl text-[var(--text-muted)] hover:text-gold-700 dark:hover:text-gold-400 hover:bg-gold-500/10"
+                    >
+                      <Edit3 className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDeleteTarget(item)}
                       aria-label={`Excluir conta ${item.nome}`}
-                      className="p-2 rounded-xl text-[var(--text-muted)] hover:text-rose-400 hover:bg-rose-500/10"
+                      className="p-2 rounded-xl text-[var(--text-muted)] hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-500/10"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -265,14 +304,17 @@ export function ContasPage({ competencia, refreshSignal, onGlobalMutate }) {
         )}
       </div>
 
-      {/* Modal Nova Conta */}
+      {/* Modal Criar / Editar Conta */}
       <Modal
         open={createOpen}
-        onClose={() => setCreateOpen(false)}
-        title="Nova Conta a Vencer"
+        onClose={() => {
+          setCreateOpen(false);
+          setEditingConta(null);
+        }}
+        title={editingConta ? 'Editar Conta a Vencer' : 'Nova Conta a Vencer'}
         subtitle="Contas fixas mensais ou financiamentos parcelados"
       >
-        <form onSubmit={handleCreate} className="space-y-4">
+        <form onSubmit={handleSaveConta} className="space-y-4">
           <div className="grid grid-cols-2 gap-2 p-1 rounded-2xl bg-[var(--bg-elevated)] border border-[var(--border-subtle)]">
             <button
               type="button"
@@ -382,9 +424,41 @@ export function ContasPage({ competencia, refreshSignal, onGlobalMutate }) {
           />
 
           <button type="submit" className="w-full btn-gold rounded-2xl py-3.5 text-sm">
-            Cadastrar Conta
+            {editingConta ? 'Salvar Alterações' : 'Cadastrar Conta'}
           </button>
         </form>
+      </Modal>
+
+      {/* Modal Confirmar Exclusão */}
+      <Modal
+        open={Boolean(deleteTarget)}
+        onClose={() => setDeleteTarget(null)}
+        title="Excluir Conta?"
+        subtitle={deleteTarget ? deleteTarget.nome : ''}
+        maxWidth="max-w-md"
+      >
+        <div className="space-y-4">
+          <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+            Ao excluir esta conta, o compromisso e todas as baixas vinculadas a ela no Caixa serão
+            removidos de forma limpa. Deseja continuar?
+          </p>
+          <div className="flex gap-2.5">
+            <button
+              type="button"
+              onClick={() => setDeleteTarget(null)}
+              className="flex-1 py-3 rounded-2xl bg-[var(--bg-elevated)] text-sm font-semibold text-[var(--text-secondary)]"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirmDelete}
+              className="flex-1 py-3 rounded-2xl bg-rose-600 text-white font-bold text-sm hover:bg-rose-700 transition"
+            >
+              Confirmar Exclusão
+            </button>
+          </div>
+        </div>
       </Modal>
 
       {/* Modal Baixa */}

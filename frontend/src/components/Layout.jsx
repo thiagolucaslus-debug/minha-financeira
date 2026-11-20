@@ -66,8 +66,8 @@ export function Layout({ competencia, onChangeCompetencia, onQuickSaved, childre
               className={({ isActive }) =>
                 `flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-semibold transition-all ${
                   isActive
-                    ? 'bg-gold-500/15 text-gold-400 border border-gold-500/35 shadow-sm'
-                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-white/5 border border-transparent'
+                    ? 'bg-gold-500/15 text-gold-700 dark:text-gold-400 border border-gold-500/40 shadow-sm'
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-black/[0.04] dark:hover:bg-white/5 border border-transparent'
                 }`
               }
             >
@@ -180,13 +180,13 @@ export function Layout({ competencia, onChangeCompetencia, onQuickSaved, childre
         </main>
       </div>
 
-      {/* Floating `+` Quick Entry Button (sempre acessível no celular e tablet/desktop) */}
+      {/* Floating `+` Quick Entry Button (sempre acessível no celular/tablet; no desktop fica fixo na sidebar) */}
       <button
         type="button"
         onClick={() => setQuickOpen(true)}
         data-testid="fab-quick-entry"
         aria-label="Lançamento Rápido"
-        className="fixed bottom-20 right-4 lg:bottom-7 lg:right-7 z-40 w-14 h-14 rounded-2xl btn-gold shadow-luxury flex items-center justify-center ring-2 ring-gold-300/40"
+        className="lg:hidden fixed bottom-20 right-4 z-40 w-14 h-14 rounded-2xl btn-gold shadow-luxury flex items-center justify-center ring-2 ring-gold-300/40"
       >
         <Plus className="w-6 h-6 stroke-[2.75]" />
       </button>
@@ -205,7 +205,7 @@ export function Layout({ competencia, onChangeCompetencia, onQuickSaved, childre
               className={({ isActive }) =>
                 `flex flex-col items-center justify-center py-1.5 rounded-xl text-[10px] font-semibold transition ${
                   isActive
-                    ? 'text-gold-400 bg-gold-500/12'
+                    ? 'text-gold-700 dark:text-gold-400 bg-gold-500/15'
                     : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
                 }`
               }

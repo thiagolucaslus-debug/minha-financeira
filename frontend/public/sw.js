@@ -1,4 +1,4 @@
-const CACHE_NAME = 'minha-financeira-shell-v1';
+const CACHE_NAME = 'minha-financeira-shell-v2';
 const SHELL_ASSETS = [
   '/',
   '/manifest.webmanifest',
@@ -29,18 +29,24 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
-  // API e health sempre frescos direto na nuvem
-  if (url.pathname.startsWith('/api/') || url.pathname === '/health') {
+  // API, cofre e health sempre frescos direto na nuvem
+  if (
+    url.pathname.startsWith('/api/') ||
+    url.pathname.startsWith('/cloud/') ||
+    url.pathname === '/health'
+  ) {
     return;
   }
 
-  // Navegação HTML: Network-First com fallback seguro
+  // Navegação HTML: Network-First com fallback seguro (nunca cachear erro 502/503 de boot)
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request)
         .then((resp) => {
-          const clone = resp.clone();
-          caches.open(CACHE_NAME).then((c) => c.put('/', clone)).catch(() => {});
+          if (resp && resp.ok && resp.status === 200) {
+            const clone = resp.clone();
+            caches.open(CACHE_NAME).then((c) => c.put('/', clone)).catch(() => {});
+          }
           return resp;
         })
         .catch(() => caches.match('/'))
